@@ -18,11 +18,7 @@ class RestRequest:
         auth = aiohttp.BasicAuth(Identifier.API_KEY, '')
 
         async with aiohttp.ClientSession(auth=auth) as session:
-            tasks = []
-            for url in urls:
-                tasks.append(self.fetch_page(session, url))
-            
-            results = await asyncio.gather(*tasks)
+            results = await asyncio.gather(*[self.fetch_page(session, url) for url in urls])
             return results
 
     async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> list[dict[str, any]]:
