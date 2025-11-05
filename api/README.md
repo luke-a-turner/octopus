@@ -65,6 +65,7 @@ This will create a virtual environment and install all required dependencies inc
 - Polars (data processing)
 - aiohttp (async HTTP client)
 - python-dotenv (environment variable loading)
+- cachetools (response caching)
 
 ## Running the API
 
@@ -96,9 +97,13 @@ poetry run uvicorn api.api:app --host 127.0.0.1 --port 8080
 
 ## API Endpoints
 
-### GET /tariff-data-today
+### Data Endpoints
+
+#### GET /tariff-data-today
 
 Retrieves Octopus Energy Agile tariff data for today only.
+
+**Caching:** Results cached for 1 hour
 
 **Response:**
 ```json
@@ -115,18 +120,22 @@ Retrieves Octopus Energy Agile tariff data for today only.
 curl http://localhost:8000/tariff-data-today
 ```
 
-### GET /tariff-data-today-and-tomorrow
+#### GET /tariff-data-today-and-tomorrow
 
 Retrieves tariff data from start of today through tomorrow.
+
+**Caching:** Results cached for 1 hour
 
 **Example Request:**
 ```bash
 curl http://localhost:8000/tariff-data-today-and-tomorrow
 ```
 
-### GET /smart-meter-usage-historic
+#### GET /smart-meter-usage-historic
 
 Retrieves historical smart meter consumption data.
+
+**Caching:** Results cached for 1 hour
 
 **Response:**
 ```json
@@ -140,16 +149,55 @@ Retrieves historical smart meter consumption data.
 
 **Example Request:**
 ```bash
-curl http://localhost:8000/smart-meter-usage-historic
+curl http://localhost:8000/smart-meter-usage-historic?start_datetime=2024-01-01T00:00:00&end_datetime=2024-01-02T00:00:00
 ```
 
-### GET /smart-meter-usage-live
+#### GET /smart-meter-usage-live
 
 Retrieves live smart meter usage via GraphQL (requires Octopus Home Mini).
+
+**Caching:** NOT CACHED (live data)
 
 **Example Request:**
 ```bash
 curl http://localhost:8000/smart-meter-usage-live
+```
+
+### Cache Management Endpoints
+
+#### GET /cache/info
+
+Get information about the current cache state.
+
+**Response:**
+```json
+{
+  "size": 3,
+  "maxsize": 100,
+  "ttl": 3600,
+  "keys": ["get_tariff_data_today:abc123", "..."]
+}
+```
+
+**Example Request:**
+```bash
+curl http://localhost:8000/cache/info
+```
+
+#### POST /cache/clear
+
+Clear all cached data. Useful for forcing fresh data retrieval.
+
+**Response:**
+```json
+{
+  "message": "Cache cleared successfully"
+}
+```
+
+**Example Request:**
+```bash
+curl -X POST http://localhost:8000/cache/clear
 ```
 
 ## API Documentation
@@ -166,6 +214,7 @@ Once the server is running, you can access:
 api/
 ├── api.py              # Main FastAPI application
 ├── async_request.py    # Async HTTP request handlers
+├── cache.py            # Caching utilities and decorators
 ├── constants.py        # Configuration constants and enums
 ├── functions.py        # Helper functions
 └── README.md          # This file
@@ -191,6 +240,28 @@ The API fetches data from:
 - Region: Standard unit rates (J region)
 
 To use a different tariff, update the constants in `api/constants.py`.
+
+### Caching
+
+The API implements a 1-hour TTL (Time To Live) cache for all data endpoints to:
+- Reduce API calls to Octopus Energy
+- Improve response times
+- Stay within API rate limits
+
+**Cache Configuration:**
+- **TTL:** 3600 seconds (1 hour)
+- **Max Size:** 100 entries
+- **Implementation:** cachetools.TTLCache
+
+**Cache Behavior:**
+- First request fetches fresh data from Octopus Energy API
+- Subsequent requests (within 1 hour) return cached data
+- Cache entries automatically expire after 1 hour
+- Live data endpoint (`/smart-meter-usage-live`) is NOT cached
+
+**Manual Cache Management:**
+- View cache status: `GET /cache/info`
+- Clear all cache: `POST /cache/clear`
 
 ## Development
 

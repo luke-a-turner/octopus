@@ -27,7 +27,7 @@ function App() {
     // Fetch both tariff data and smart meter usage data
     Promise.all([
       axios.get<TariffData[]>('http://localhost:8000/tariff-data-today-and-tomorrow'),
-      axios.get<UsageData[]>('http://localhost:8000/smart-meter-usage-historic')
+      axios.get<UsageData[]>('http://localhost:8000/smart-meter-usage-historic?start_datetime=2025-11-03T00:00:00&end_datetime=2025-11-03T23:59:59')
     ])
       .then(([tariffResponse, usageResponse]) => {
         const tariffData = tariffResponse.data;
@@ -50,15 +50,20 @@ function App() {
           return acc;
         }, {} as Record<string, GroupedItem[]>);
 
-        // Create a trace for each date (bar chart)
-        const colors = ['#E3E342', '#2A2299', '#24941B'];
+        // Create a trace for each date (line chart)
+        const colors = ['#E3E342', '#8F8F10'];
         const traces: Data[] = Object.entries(grouped).map(([date, items], index) => {
           items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
           return {
             x: items.map(item => item.time),
             y: items.map(item => item.value),
-            type: 'bar',
+            type: 'scattergl',
+            mode: 'lines+markers',
             name: date,
+            line: {
+              color: colors[index % colors.length],
+              width: 2
+            },
             marker: {
               color: colors[index % colors.length]
             }
@@ -78,20 +83,15 @@ function App() {
 
         // Add scatter plot trace for smart meter usage
         if (usageProcessed.length > 0) {
-          traces.push({
+          traces.unshift({
             x: usageProcessed.map(item => item.time),
             y: usageProcessed.map(item => item.consumption),
-            type: 'scatter',
-            mode: 'lines+markers',
+            type: 'bar',
             name: 'Smart Meter Usage (kWh)',
             yaxis: 'y2',
-            line: {
-              color: '#FF6B6B',
-              width: 2
-            },
             marker: {
               size: 6,
-              color: '#FF6B6B'
+              color: '#24941B'
             }
           } as Data);
         }
@@ -129,7 +129,7 @@ function App() {
       color: '#e0e0e0'
     }}>
       <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>
-        Octopus Energy Agile Tariff Data
+        Octopus Energy Dashboard
       </h1>
       <Plot
         data={chartData}

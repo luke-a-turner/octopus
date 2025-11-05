@@ -3,7 +3,15 @@ from dataclasses import dataclass
 
 import asyncio
 import aiohttp
+import logging
 from datetime import datetime
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Token:
@@ -11,6 +19,7 @@ class Token:
     expiry: datetime
     refreshValue: str
     refreshExpiry: datetime
+
 
 class RestRequest:
     async def fetch_lazy_async(self, urls: list[str]) -> any:
@@ -23,6 +32,7 @@ class RestRequest:
 
     async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> list[dict[str, any]]:
         async with session.get(url) as response:
+            logger.info(f"Fetching data from {url}")
             return await response.json()
 
 

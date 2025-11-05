@@ -16,6 +16,7 @@ This project provides real-time visualization of electricity prices and smart me
 - 🌙 Dark theme interface
 - 📈 Dual y-axis charts for price vs usage comparison
 - 🔄 Async data fetching for optimal performance
+- 💾 1-hour response caching for improved performance
 - 🎨 Custom color schemes for data visualization
 
 ## Project Structure
@@ -160,17 +161,30 @@ The application uses environment variables for sensitive configuration. These mu
 
 The backend provides the following REST endpoints:
 
-### Tariff Data
+### Tariff Data (Cached for 1 hour)
 
 - `GET /tariff-data-today` - Today's tariff prices only
 - `GET /tariff-data-today-and-tomorrow` - Tariff prices for today and tomorrow
 
 ### Smart Meter Data
 
-- `GET /smart-meter-usage-historic` - Historical consumption data
-- `GET /smart-meter-usage-live` - Live usage (requires Octopus Home Mini)
+- `GET /smart-meter-usage-historic` - Historical consumption data (cached for 1 hour)
+- `GET /smart-meter-usage-live` - Live usage (requires Octopus Home Mini, NOT cached)
+
+### Cache Management
+
+- `GET /cache/info` - View cache status
+- `POST /cache/clear` - Clear all cached data
 
 For detailed API documentation, see [api/README.md](api/README.md) or visit http://localhost:8000/docs
+
+### Caching
+
+All data endpoints (except live data) are cached for 1 hour to:
+- Reduce API calls to Octopus Energy
+- Improve response times
+- Stay within rate limits
+- Decrease server load
 
 ## Development
 
@@ -215,6 +229,7 @@ npm install package-name
 - Polars for data processing
 - aiohttp for async HTTP requests
 - python-dotenv for environment variables
+- cachetools for response caching
 
 **Frontend (TypeScript/React):**
 - React 18 with TypeScript
@@ -324,6 +339,7 @@ npm run build
 - [Polars](https://www.pola.rs/) - Fast DataFrame library
 - [aiohttp](https://docs.aiohttp.org/) - Async HTTP client/server
 - [Uvicorn](https://www.uvicorn.org/) - ASGI server
+- [cachetools](https://cachetools.readthedocs.io/) - Extensible memoizing collections
 
 ### Frontend
 - [React](https://react.dev/) - UI library
@@ -353,10 +369,11 @@ For issues:
 
 ## Roadmap
 
+- [x] Cache data for 1 hour (implemented with cachetools)
 - [ ] Add cost calculation features
 - [ ] Historical data comparison
 - [ ] Export data to CSV
-- [ ] Cache data (redis or postgres?)
+- [ ] Persistent cache (Redis or PostgreSQL?)
 - [ ] User preferences and settings
 - [ ] Integration with home automation systems
-- [ ] Additional charting?
+- [ ] Additional charting options

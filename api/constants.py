@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+PAGE_SIZE = 1500
+SECONDS_IN_HOUR = 3600
+
 class Url(StrEnum):
     GRAPHQL_API = "https://api.octopus.energy/v1/graphql/"
     REST_API = "https://api.octopus.energy/v1/"
@@ -23,7 +26,6 @@ class Identifier(StrEnum):
 class Field(StrEnum):
     CONSUMPTION = "consumption"
     INTERVAL_START = "interval_start"
-    INTERVAL_START_DATE = "interval_start_dt"
     VALID_FROM = "valid_from"
     VALUE = "value_inc_vat"
 
