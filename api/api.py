@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import polars as pl
 from fastapi import FastAPI
@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from api.async_request import GraphqlRequest
 from api.cache import async_cache, clear_cache, get_cache_info
 from api.constants import Endpoint, Field, Identifier, Url
-from api.data import get_polars_dataframe
+from api.processing import get_polars_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +54,7 @@ async def get_tariff_data_today() -> list[TariffData]:
         Field.VALID_FROM,
         Field.VALUE,
     )
-    data: list[TariffData] = df.to_dicts()
-    return data
+    return cast(list[TariffData], df.to_dicts())
 
 
 @app.get("/tariff-data-today-and-tomorrow")
@@ -75,8 +74,7 @@ async def get_tariff_today_and_tomorrow() -> list[TariffData]:
         Field.VALID_FROM,
         Field.VALUE,
     )
-    data: list[TariffData] = df.to_dicts()
-    return data
+    return cast(list[TariffData], df.to_dicts())
 
 
 @app.get("/smart-meter-usage-historic")
@@ -90,13 +88,11 @@ async def get_smart_meter_usage_historic(
     df = await get_polars_dataframe(
         url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION
     )
-    data: list[ConsumptionData] = df.to_dicts()
-
-    return data
+    return cast(list[ConsumptionData], df.to_dicts())
 
 
 @app.get("/smart-meter-usage-live")
-async def get_smart_meter_usage_live() -> list[dict[str, Any]]:
+async def get_smart_meter_usage_live() -> list[ConsumptionData]:
     """Get live Octopus Energy smart meter usage using graphql (requires home mini) - NOT CACHED"""
     service = await GraphqlRequest.create()
     data = await service.fetch_live_usage("1234")
@@ -117,8 +113,7 @@ async def get_smart_meter_usage_live() -> list[dict[str, Any]]:
         .collect()
         .to_dicts()
     )
-
-    return consumption_data
+    return cast(list[ConsumptionData], consumption_data)
 
 
 @app.post("/cache/clear")

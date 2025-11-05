@@ -13,7 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def get_data(
+async def get_polars_dataframe(
     url: str,
     start_datetime: datetime,
     end_datetime: datetime,

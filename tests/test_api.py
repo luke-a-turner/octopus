@@ -59,8 +59,8 @@ async def test_tariff_data_caching(client):
     # Clear cache first
     client.post("/cache/clear")
 
-    # Mock the get_data function to avoid actual API calls
-    with patch("api.api.get_data", new_callable=AsyncMock) as mock_get_data:
+    # Mock the get_polars_dataframe function to avoid actual API calls
+    with patch("api.api.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
         mock_get_data.return_value = AsyncMock(
             to_dicts=lambda: [{"valid_from": "2024-01-01T00:00:00", "value_inc_vat": 15.5}]
         )
