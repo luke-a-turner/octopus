@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import axios from 'axios';
 import App from '../App';
+import * as apiService from '../services/api';
 
-// Mock axios
-vi.mock('axios');
-const mockedAxios = vi.mocked(axios, true);
+// Mock the API service
+vi.mock('../services/api');
+const mockedApiService = vi.mocked(apiService);
 
 // Mock react-plotly.js to avoid WebGL issues in tests
 vi.mock('react-plotly.js', () => ({
@@ -13,13 +13,31 @@ vi.mock('react-plotly.js', () => ({
 }));
 
 describe('App Component', () => {
+  const mockDashboardData = {
+    chartData: [
+      {
+        x: ['00:00', '00:30'],
+        y: [15.5, 16.2],
+        type: 'scattergl',
+        mode: 'lines+markers',
+        name: '2024-01-01 price',
+      },
+    ],
+    costSummary: {
+      totalCost: 1.25,
+      totalConsumption: 10.5,
+      averagePrice: 15.8,
+      itemCount: 48,
+    },
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders loading state initially', () => {
-    // Mock axios to delay response
-    mockedAxios.get.mockImplementation(() => new Promise(() => {}));
+    // Mock fetchDashboardData to delay response
+    mockedApiService.fetchDashboardData.mockImplementation(() => new Promise(() => {}));
 
     render(<App />);
 
@@ -27,33 +45,8 @@ describe('App Component', () => {
   });
 
   it('renders dashboard title after loading', async () => {
-    // Mock successful API responses
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes('tariff-data')) {
-        return Promise.resolve({
-          data: [
-            {
-              valid_from: '2024-01-01T00:00:00',
-              value_inc_vat: 15.5,
-            },
-            {
-              valid_from: '2024-01-01T00:30:00',
-              value_inc_vat: 16.2,
-            },
-          ],
-        });
-      } else if (url.includes('smart-meter-usage')) {
-        return Promise.resolve({
-          data: [
-            {
-              interval_start: '2024-01-01T00:00:00',
-              consumption: 0.5,
-            },
-          ],
-        });
-      }
-      return Promise.reject(new Error('Unknown endpoint'));
-    });
+    // Mock successful API response
+    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
 
     render(<App />);
 
@@ -63,24 +56,8 @@ describe('App Component', () => {
   });
 
   it('renders plot component after data loads', async () => {
-    // Mock successful API responses
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes('tariff-data')) {
-        return Promise.resolve({
-          data: [
-            {
-              valid_from: '2024-01-01T00:00:00',
-              value_inc_vat: 15.5,
-            },
-          ],
-        });
-      } else if (url.includes('smart-meter-usage')) {
-        return Promise.resolve({
-          data: [],
-        });
-      }
-      return Promise.reject(new Error('Unknown endpoint'));
-    });
+    // Mock successful API response
+    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
 
     render(<App />);
 
@@ -89,9 +66,34 @@ describe('App Component', () => {
     });
   });
 
+  it('renders cost summary cards after data loads', async () => {
+    // Mock successful API response
+    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Cost Today')).toBeInTheDocument();
+      expect(screen.getByText('Total Consumption')).toBeInTheDocument();
+      expect(screen.getByText('Avg Cost per kWh')).toBeInTheDocument();
+    });
+  });
+
+  it('displays cost summary values correctly', async () => {
+    // Mock successful API response
+    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('£1.25')).toBeInTheDocument();
+      expect(screen.getByText(/10\.50/)).toBeInTheDocument();
+    });
+  });
+
   it('handles API errors gracefully', async () => {
-    // Mock axios to reject
-    mockedAxios.get.mockRejectedValue(new Error('API Error'));
+    // Mock fetchDashboardData to reject
+    mockedApiService.fetchDashboardData.mockRejectedValue(new Error('API Error'));
 
     // Mock console.error to avoid noise in test output
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -106,48 +108,27 @@ describe('App Component', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('makes API calls to correct endpoints', async () => {
-    mockedAxios.get.mockResolvedValue({ data: [] });
+  it('calls fetchDashboardData with correct date range', async () => {
+    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('tariff-data-today-and-tomorrow')
-      );
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('smart-meter-historic-consumption')
+      expect(mockedApiService.fetchDashboardData).toHaveBeenCalledWith(
+        '2025-11-03T00:00:00',
+        '2025-11-05T23:59:59'
       );
     });
   });
 
-  it('processes tariff data correctly', async () => {
-    const mockTariffData = [
-      {
-        valid_from: '2024-01-01T00:00:00',
-        value_inc_vat: 15.5,
-      },
-      {
-        valid_from: '2024-01-01T00:30:00',
-        value_inc_vat: 16.2,
-      },
-    ];
-
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes('tariff-data')) {
-        return Promise.resolve({ data: mockTariffData });
-      } else {
-        return Promise.resolve({ data: [] });
-      }
-    });
+  it('calculates average cost per kWh correctly', async () => {
+    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('plot-component')).toBeInTheDocument();
+      // totalCost (£1.25) / totalConsumption (10.5 kWh) = 0.119 p/kWh = 0.12 p/kWh
+      expect(screen.getByText(/0\.12/)).toBeInTheDocument();
     });
-
-    // Verify that axios was called with the correct URLs
-    expect(mockedAxios.get).toHaveBeenCalledTimes(2);
   });
 });
