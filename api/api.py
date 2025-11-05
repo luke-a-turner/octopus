@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import cast
 
 import polars as pl
 from fastapi import FastAPI
@@ -99,7 +99,9 @@ async def get_smart_meter_historic_consumption(
 
 @app.get("/tariff-rates-with-historic-consumption")
 @async_cache
-async def get_tariff_rates_with_historic_consumption(start_datetime: datetime, end_datetime: datetime) -> list[TariffAndConsumptionData]:
+async def get_tariff_rates_with_historic_consumption(
+    start_datetime: datetime, end_datetime: datetime
+) -> list[TariffAndConsumptionData]:
     """Get agile tariff rates for time period with consumption data (cached for 1 hour)"""
     df_tariff_rates = await get_polars_dataframe(
         f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
@@ -114,7 +116,9 @@ async def get_tariff_rates_with_historic_consumption(start_datetime: datetime, e
         consumption_url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION
     )
 
-    df = df_tariff_rates.join(df_consumption, how='left', left_on=Field.VALID_FROM, right_on=Field.INTERVAL_START).fill_null(0.0)
+    df = df_tariff_rates.join(
+        df_consumption, how="left", left_on=Field.VALID_FROM, right_on=Field.INTERVAL_START
+    ).fill_null(0.0)
     return cast(list[TariffAndConsumptionData], df.to_dicts())
 
 

@@ -30,7 +30,9 @@ async def get_polars_dataframe(
     urls = [f"{url}?page_size={PAGE_SIZE}&page={i}" for i in range(1, (pages_required + 1))]
     data_batches = await RestRequest().fetch_results(urls)
 
-    lazy_frames = [pl.DataFrame(batch["results"]).lazy() for batch in data_batches if batch["results"]]
+    lazy_frames = [
+        pl.DataFrame(batch["results"]).lazy() for batch in data_batches if batch["results"]
+    ]
 
     if not lazy_frames:
         return pl.DataFrame()

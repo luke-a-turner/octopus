@@ -220,9 +220,7 @@ async def test_get_polars_dataframe_consumption_data():
 @pytest.mark.asyncio
 async def test_get_polars_dataframe_empty_results():
     """Test handling of empty results"""
-    mock_response = {
-        "results": []
-    }
+    mock_response = {"results": []}
 
     with patch("api.processing.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
