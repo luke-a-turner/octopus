@@ -3,38 +3,47 @@ import Plot from 'react-plotly.js';
 import axios from 'axios';
 import { Data } from 'plotly.js';
 
-interface TariffData {
+interface TariffAndConsumptionData {
   valid_from: string;
   value_inc_vat: number;
-}
-
-interface UsageData {
   interval_start: string;
   consumption: number;
 }
 
 interface GroupedItem {
   time: string;
-  value: number;
+  tariffRate: number;
+  consumption: number;
   dateTime: Date;
+}
+
+interface CostSummary {
+  totalCost: number;
+  totalConsumption: number;
+  averagePrice: number;
+  itemCount: number;
 }
 
 function App() {
   const [chartData, setChartData] = useState<Data[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [costSummary, setCostSummary] = useState<CostSummary>({
+    totalCost: 0,
+    totalConsumption: 0,
+    averagePrice: 0,
+    itemCount: 0,
+  });
 
   useEffect(() => {
     // Fetch both tariff data and smart meter usage data
     Promise.all([
-      axios.get<TariffData[]>('http://localhost:8000/tariff-data-today-and-tomorrow'),
-      axios.get<UsageData[]>('http://localhost:8000/smart-meter-usage-historic?start_datetime=2025-11-03T00:00:00&end_datetime=2025-11-03T23:59:59')
+      axios.get<TariffAndConsumptionData[]>('http://localhost:8000/tariff-rates-with-historic-consumption?start_datetime=2025-11-03T00:00:00&end_datetime=2025-11-05T23:59:59'),
     ])
-      .then(([tariffResponse, usageResponse]) => {
-        const tariffData = tariffResponse.data;
-        const usageData = usageResponse.data;
+      .then(([tariffConsumptionResponse]) => {
+        const tariffConsumptionData = tariffConsumptionResponse.data;
 
         // Group tariff data by date and prepare data for plotting
-        const grouped: Record<string, GroupedItem[]> = tariffData.reduce((acc, item) => {
+        const grouped: Record<string, GroupedItem[]> = tariffConsumptionData.reduce((acc, item) => {
           const dateTime = new Date(item.valid_from);
           const dateKey = dateTime.toISOString().split('T')[0];
           const time = dateTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -44,57 +53,73 @@ function App() {
           }
           acc[dateKey].push({
             time,
-            value: item.value_inc_vat,
+            tariffRate: item.value_inc_vat,
+            consumption: item.consumption,
             dateTime
           });
           return acc;
         }, {} as Record<string, GroupedItem[]>);
 
         // Create a trace for each date (line chart)
-        const colors = ['#E3E342', '#8F8F10'];
-        const traces: Data[] = Object.entries(grouped).map(([date, items], index) => {
+        const tariffColors = ['#E3E342', '#8F8F10', '#D2D690'];
+        const tariffTraces: Data[] = Object.entries(grouped).map(([date, items], index) => {
           items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
           return {
             x: items.map(item => item.time),
-            y: items.map(item => item.value),
+            y: items.map(item => item.tariffRate),
             type: 'scattergl',
             mode: 'lines+markers',
-            name: date,
+            name: `${date} price`,
             line: {
-              color: colors[index % colors.length],
+              color: tariffColors[index % tariffColors.length],
               width: 2
             },
             marker: {
-              color: colors[index % colors.length]
+              color: tariffColors[index % tariffColors.length]
             }
           };
         });
 
-        // Process smart meter usage data for scatter plot
-        const usageProcessed = usageData.map(item => {
-          const dateTime = new Date(item.interval_start);
-          const time = dateTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const consumptionColors = ['#75DB0D', '#67A626', '#6B8F46']
+        const consumptionTraces: Data[] = Object.entries(grouped).map(([date, items], index) => {
+          items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
           return {
-            time,
-            consumption: item.consumption,
-            dateTime
-          };
-        }).sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-
-        // Add scatter plot trace for smart meter usage
-        if (usageProcessed.length > 0) {
-          traces.unshift({
-            x: usageProcessed.map(item => item.time),
-            y: usageProcessed.map(item => item.consumption),
+            x: items.map(item => item.time),
+            y: items.map(item => item.consumption),
             type: 'bar',
-            name: 'Smart Meter Usage (kWh)',
+            name: `${date} consumption`,
             yaxis: 'y2',
             marker: {
               size: 6,
-              color: '#24941B'
+              color: consumptionColors[index % tariffColors.length]
             }
-          } as Data);
-        }
+          };
+        });
+
+        const traces = [...tariffTraces, ...consumptionTraces]
+
+        let totalCost = 0;
+        let totalConsumption = 0;
+        let totalPrice = 0;
+        let timeIntervalCount = 0;
+
+        tariffConsumptionData.forEach(timeInterval => {
+          // Cost in pence = consumption (kWh) * price (p/kWh)
+          const cost = timeInterval.consumption * timeInterval.value_inc_vat;
+          totalCost += cost;
+          totalConsumption += timeInterval.consumption;
+          totalPrice += timeInterval.value_inc_vat;
+          timeIntervalCount++;
+        });
+
+        const averagePrice = timeIntervalCount > 0 ? totalPrice / timeIntervalCount : 0;
+
+        setCostSummary({
+          totalCost: totalCost / 100, // Convert pence to pounds
+          totalConsumption,
+          averagePrice,
+          itemCount: timeIntervalCount,
+        });
 
         setChartData(traces);
         setLoading(false);
@@ -131,6 +156,82 @@ function App() {
       <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>
         Octopus Energy Dashboard
       </h1>
+
+      {/* Cost Summary Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '20px',
+        marginBottom: '30px',
+        maxWidth: '800px',
+        margin: '0 auto 30px auto',
+      }}>
+        {/* Total Cost Card */}
+        <div style={{
+          backgroundColor: '#262626',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '2px solid #E3E342',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#a0a0a0' }}>
+            Total Cost Today
+          </h3>
+          <p style={{
+            margin: 0,
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#E3E342'
+          }}>
+            £{costSummary.totalCost.toFixed(2)}
+          </p>
+        </div>
+
+        {/* Total Consumption Card */}
+        <div style={{
+          backgroundColor: '#262626',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '2px solid #24941B',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#a0a0a0' }}>
+            Total Consumption
+          </h3>
+          <p style={{
+            margin: 0,
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#24941B'
+          }}>
+            {costSummary.totalConsumption.toFixed(2)} kWh
+          </p>
+        </div>
+
+        {/* Cost per kWh Card */}
+        <div style={{
+          backgroundColor: '#262626',
+          padding: '20px',
+          borderRadius: '8px',
+          border: '2px solid #FF6B6B',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#a0a0a0' }}>
+            Avg Cost per kWh
+          </h3>
+          <p style={{
+            margin: 0,
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#FF6B6B'
+          }}>
+            {costSummary.totalConsumption > 0
+              ? (costSummary.totalCost / costSummary.totalConsumption).toFixed(2)
+              : '0.00'} p
+          </p>
+        </div>
+      </div>
+
       <Plot
         data={chartData}
         layout={{
@@ -149,7 +250,7 @@ function App() {
             gridcolor: '#404040'
           },
           yaxis2: {
-            title: { text: 'Usage (kWh)', font: { color: '#e0e0e0' } },
+            title: { text: 'Consumption (kWh)', font: { color: '#e0e0e0' } },
             tickfont: { color: '#e0e0e0' },
             gridcolor: '#404040',
             overlaying: 'y',

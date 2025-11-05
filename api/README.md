@@ -131,7 +131,7 @@ Retrieves tariff data from start of today through tomorrow.
 curl http://localhost:8000/tariff-data-today-and-tomorrow
 ```
 
-#### GET /smart-meter-usage-historic
+#### GET /smart-meter-historic-consumption
 
 Retrieves historical smart meter consumption data.
 
@@ -149,10 +149,10 @@ Retrieves historical smart meter consumption data.
 
 **Example Request:**
 ```bash
-curl http://localhost:8000/smart-meter-usage-historic?start_datetime=2024-01-01T00:00:00&end_datetime=2024-01-02T00:00:00
+curl http://localhost:8000/smart-meter-historic-consumption?start_datetime=2024-01-01T00:00:00&end_datetime=2024-01-02T00:00:00
 ```
 
-#### GET /smart-meter-usage-live
+#### GET /smart-meter-live-consumption
 
 Retrieves live smart meter usage via GraphQL (requires Octopus Home Mini).
 
@@ -160,7 +160,7 @@ Retrieves live smart meter usage via GraphQL (requires Octopus Home Mini).
 
 **Example Request:**
 ```bash
-curl http://localhost:8000/smart-meter-usage-live
+curl http://localhost:8000/smart-meter-live-consumption
 ```
 
 ### Cache Management Endpoints
@@ -257,7 +257,7 @@ The API implements a 1-hour TTL (Time To Live) cache for all data endpoints to:
 - First request fetches fresh data from Octopus Energy API
 - Subsequent requests (within 1 hour) return cached data
 - Cache entries automatically expire after 1 hour
-- Live data endpoint (`/smart-meter-usage-live`) is NOT cached
+- Live data endpoint (`/smart-meter-live-consumption`) is NOT cached
 
 **Manual Cache Management:**
 - View cache status: `GET /cache/info`

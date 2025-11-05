@@ -194,8 +194,8 @@ The backend provides the following REST endpoints:
 
 ### Smart Meter Data
 
-- `GET /smart-meter-usage-historic` - Historical consumption data (cached for 1 hour)
-- `GET /smart-meter-usage-live` - Live usage (requires Octopus Home Mini, NOT cached)
+- `GET /smart-meter-historic-consumption` - Historical consumption data (cached for 1 hour)
+- `GET /smart-meter-live-consumption` - Live usage (requires Octopus Home Mini, NOT cached)
 
 ### Cache Management
 

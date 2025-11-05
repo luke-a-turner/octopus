@@ -116,7 +116,7 @@ describe('App Component', () => {
         expect.stringContaining('tariff-data-today-and-tomorrow')
       );
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('smart-meter-usage-historic')
+        expect.stringContaining('smart-meter-historic-consumption')
       );
     });
   });

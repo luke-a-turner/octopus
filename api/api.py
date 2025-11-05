@@ -39,6 +39,12 @@ class ConsumptionData(BaseModel):
     consumption: float
 
 
+class TariffAndConsumptionData(BaseModel):
+    valid_from: datetime
+    value_inc_vat: float
+    consumption: float
+
+
 @app.get("/tariff-data-today")
 @async_cache
 async def get_tariff_data_today() -> list[TariffData]:
@@ -77,9 +83,9 @@ async def get_tariff_today_and_tomorrow() -> list[TariffData]:
     return cast(list[TariffData], df.to_dicts())
 
 
-@app.get("/smart-meter-usage-historic")
+@app.get("/smart-meter-historic-consumption")
 @async_cache
-async def get_smart_meter_usage_historic(
+async def get_smart_meter_historic_consumption(
     start_datetime: datetime, end_datetime: datetime
 ) -> list[ConsumptionData]:
     """Get historic smart meter energy usage (cached for 1 hour)"""
@@ -91,7 +97,28 @@ async def get_smart_meter_usage_historic(
     return cast(list[ConsumptionData], df.to_dicts())
 
 
-@app.get("/smart-meter-usage-live")
+@app.get("/tariff-rates-with-historic-consumption")
+@async_cache
+async def get_tariff_rates_with_historic_consumption(start_datetime: datetime, end_datetime: datetime) -> list[TariffAndConsumptionData]:
+    """Get agile tariff rates for time period with consumption data (cached for 1 hour)"""
+    df_tariff_rates = await get_polars_dataframe(
+        f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
+        start_datetime,
+        end_datetime,
+        Field.VALID_FROM,
+        Field.VALUE,
+    )
+
+    consumption_url = f"https://api.octopus.energy/v1/electricity-meter-points/{Identifier.MPAN}/meters/{Identifier.SERIAL_NUMBER}/consumption/"
+    df_consumption = await get_polars_dataframe(
+        consumption_url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION
+    )
+
+    df = df_tariff_rates.join(df_consumption, how='left', left_on=Field.VALID_FROM, right_on=Field.INTERVAL_START).fill_null(0.0)
+    return cast(list[TariffAndConsumptionData], df.to_dicts())
+
+
+@app.get("/smart-meter-live-consumption")
 async def get_smart_meter_usage_live() -> list[ConsumptionData]:
     """Get live Octopus Energy smart meter usage using graphql (requires home mini) - NOT CACHED"""
     service = await GraphqlRequest.create()
