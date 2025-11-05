@@ -30,14 +30,18 @@ async def get_polars_dataframe(
     urls = [f"{url}?page_size={PAGE_SIZE}&page={i}" for i in range(1, (pages_required + 1))]
     data_batches = await RestRequest().fetch_results(urls)
 
-    lazy_frames = [pl.DataFrame(batch["results"]).lazy() for batch in data_batches]
-    logger.info(f"Created {len(lazy_frames)} dataframes from batches")
+    lazy_frames = [pl.DataFrame(batch["results"]).lazy() for batch in data_batches if batch["results"]]
 
+    if not lazy_frames:
+        return pl.DataFrame()
+
+    logger.info(f"Created {len(lazy_frames)} dataframes from batches")
     logger.info(f"Filtering data for range {start_datetime} to {end_datetime} on {date_field}")
+
     df = (
         pl.concat(lazy_frames)
         .with_columns(pl.col(date_field).str.to_datetime("%Y-%m-%dT%H:%M:%SZ").alias(date_field))
-        .filter((pl.col(date_field) > start_datetime) & (pl.col(date_field) < end_datetime))
+        .filter((pl.col(date_field) >= start_datetime) & (pl.col(date_field) < end_datetime))
         .select([date_field, value_field])
         .collect()
     )
