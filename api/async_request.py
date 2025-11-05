@@ -2,6 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Self
 
 import aiohttp
 
@@ -22,7 +23,7 @@ class Token:
 
 
 class RestRequest:
-    async def fetch_lazy_async(self, urls: list[str]) -> any:
+    async def fetch_results(self, urls: list[str]) -> list[dict[str, Any]]:
         """Fetch multiple API requests asynchronously"""
         auth = aiohttp.BasicAuth(Identifier.API_KEY, "")
 
@@ -30,7 +31,7 @@ class RestRequest:
             results = await asyncio.gather(*[self.fetch_page(session, url) for url in urls])
             return results
 
-    async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> list[dict[str, any]]:
+    async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> Any:
         async with session.get(url) as response:
             logger.info(f"Fetching data from {url}")
             return await response.json()
@@ -41,36 +42,48 @@ class GraphqlRequest:
         self.token: Token | None = None
 
     @classmethod
-    async def create(cls):
-        self = cls()
+    async def create(cls) -> Self:
+        self = cls()  # func-returns-value: ignore
         self.token = await self._set_token()
         return self
 
-    async def _set_token(self) -> None:
+    @staticmethod
+    async def _set_token() -> Token:
         try:
-            query = """
-                mutation krakenTokenAuthentication($api: String!) {
-                obtainKrakenToken(input: {APIKey: $api}) {
-                    token
-                    expiresIn
-                    refreshToken
-                    refreshExpiresIn
+            auth = aiohttp.BasicAuth(Identifier.API_KEY, "")
+
+            async with aiohttp.ClientSession(auth=auth) as session:
+                query = """
+                    mutation krakenTokenAuthentication($api: String!) {
+                    obtainKrakenToken(input: {APIKey: $api}) {
+                        token
+                        expiresIn
+                        refreshToken
+                        refreshExpiresIn
+                    }
                 }
-            }
-            """
-            variables = {"api": Identifier.API_KEY}
-            response = aiohttp.post(Url.GRAPHQL_API, json={"query": query, "variables": variables})
+                """
+                variables = {"api": Identifier.API_KEY}
+                async with session.post(
+                    Url.GRAPHQL_API, json={"query": query, "variables": variables}
+                ) as response:
+                    json = await response.json()
         except Exception as err:
             print(f"Error: {err}")
+            json = {}
 
-        json = await response.json()
-        self.token = Token(
+        return Token(
             json.get("data", {}).get("obtainKrakenToken", {}).get("token"),
-            json.get("data", {}).get("obtainKrakenToken", {}).get("expiry"),
+            json.get("data", {}).get("obtainKrakenToken", {}).get("expiresIn"),
+            json.get("data", {}).get("obtainKrakenToken", {}).get("refreshToken"),
+            json.get("data", {}).get("obtainKrakenToken", {}).get("refreshExpiresIn"),
         )
 
-    async def fetch_live_usage(self, account_number: str) -> dict[str, any]:
+    async def fetch_live_usage(self, account_number: str) -> Any:
         """Fetch multiple API endpoints asynchronously"""
+        if self.token is None:
+            return {}
+
         headers = {"Authorization": self.token.value}
         async with aiohttp.ClientSession(headers=headers) as session:
             try:
@@ -95,3 +108,4 @@ class GraphqlRequest:
                     return await response.json()
             except Exception as err:
                 print(f"Error: {err}")
+                return {}

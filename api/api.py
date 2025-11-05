@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta
+from typing import Any
 
 import polars as pl
 from fastapi import FastAPI
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 from api.async_request import GraphqlRequest
 from api.cache import async_cache, clear_cache, get_cache_info
 from api.constants import Endpoint, Field, Identifier, Url
-from api.functions import get_data
+from api.data import get_polars_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +47,15 @@ async def get_tariff_data_today() -> list[TariffData]:
     start_datetime = datetime(today.year, today.month, today.day)
     end_datetime = datetime(today.year, today.month, today.day, 23, 59, 59)
 
-    df = await get_data(
+    df = await get_polars_dataframe(
         f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
     )
-    return df.to_dicts()
+    data: list[TariffData] = df.to_dicts()
+    return data
 
 
 @app.get("/tariff-data-today-and-tomorrow")
@@ -66,14 +68,15 @@ async def get_tariff_today_and_tomorrow() -> list[TariffData]:
     tomorrow = start_datetime + timedelta(days=1)
     end_datetime = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 23, 59, 59)
 
-    df = await get_data(
+    df = await get_polars_dataframe(
         f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
     )
-    return df.to_dicts()
+    data: list[TariffData] = df.to_dicts()
+    return data
 
 
 @app.get("/smart-meter-usage-historic")
@@ -83,12 +86,17 @@ async def get_smart_meter_usage_historic(
 ) -> list[ConsumptionData]:
     """Get historic smart meter energy usage (cached for 1 hour)"""
     url = f"https://api.octopus.energy/v1/electricity-meter-points/{Identifier.MPAN}/meters/{Identifier.SERIAL_NUMBER}/consumption/"
-    df = await get_data(url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION)
-    return df.to_dicts()
+
+    df = await get_polars_dataframe(
+        url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION
+    )
+    data: list[ConsumptionData] = df.to_dicts()
+
+    return data
 
 
 @app.get("/smart-meter-usage-live")
-async def get_smart_meter_usage_live() -> list[ConsumptionData]:
+async def get_smart_meter_usage_live() -> list[dict[str, Any]]:
     """Get live Octopus Energy smart meter usage using graphql (requires home mini) - NOT CACHED"""
     service = await GraphqlRequest.create()
     data = await service.fetch_live_usage("1234")
@@ -98,18 +106,19 @@ async def get_smart_meter_usage_live() -> list[ConsumptionData]:
     today = datetime.today()
     start_of_day = datetime(today.year, today.month, 2)
 
-    df = (
+    consumption_data = (
         df.with_columns(
             pl.col(Field.INTERVAL_START)
             .str.to_datetime("%Y-%m-%dT%H:%M:%SZ")
-            .alias(Field.INTERVAL_START_DATE)
+            .alias(Field.INTERVAL_START)
         )
-        .filter(pl.col(Field.INTERVAL_START_DATE) > start_of_day)
+        .filter(pl.col(Field.INTERVAL_START) > start_of_day)
         .select([Field.INTERVAL_START, Field.CONSUMPTION])
         .collect()
+        .to_dicts()
     )
 
-    return df.to_dicts()
+    return consumption_data
 
 
 @app.post("/cache/clear")

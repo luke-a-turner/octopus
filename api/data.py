@@ -28,7 +28,7 @@ async def get_data(
     pages_required = ceil(number_data_points / PAGE_SIZE)
 
     urls = [f"{url}?page_size={PAGE_SIZE}&page={i}" for i in range(1, (pages_required + 1))]
-    data_batches = await RestRequest().fetch_lazy_async(urls)
+    data_batches = await RestRequest().fetch_results(urls)
 
     lazy_frames = [pl.DataFrame(batch["results"]).lazy() for batch in data_batches]
     logger.info(f"Created {len(lazy_frames)} dataframes from batches")
