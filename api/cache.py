@@ -4,8 +4,10 @@ Cache utilities for FastAPI endpoints
 import hashlib
 import json
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
+
 from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,8 @@ def create_cache_key(*args, **kwargs) -> str:
     """
     # Combine all arguments into a string
     key_data = {
-        'args': [str(arg) for arg in args],
-        'kwargs': {k: str(v) for k, v in sorted(kwargs.items())}
+        "args": [str(arg) for arg in args],
+        "kwargs": {k: str(v) for k, v in sorted(kwargs.items())},
     }
     key_string = json.dumps(key_data, sort_keys=True)
     # Create a hash for shorter keys
@@ -38,6 +40,7 @@ def async_cache(func: Callable) -> Callable:
         async def my_function(param1, param2):
             return await expensive_operation()
     """
+
     @wraps(func)
     async def wrapper(*args, **kwargs):
         # Create cache key from function name and arguments
@@ -74,8 +77,8 @@ def get_cache_info() -> dict[str, Any]:
     Get information about the current cache state
     """
     return {
-        'size': len(cache),
-        'maxsize': cache.maxsize,
-        'ttl': cache.ttl,
-        'keys': list(cache.keys())
+        "size": len(cache),
+        "maxsize": cache.maxsize,
+        "ttl": cache.ttl,
+        "keys": list(cache.keys()),
     }

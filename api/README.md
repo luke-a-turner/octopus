@@ -289,6 +289,64 @@ To update all dependencies:
 poetry update
 ```
 
+### Code Quality
+
+**Linting and Formatting:**
+```bash
+# Check code quality
+poetry run ruff check .
+
+# Auto-fix issues
+poetry run ruff check . --fix
+
+# Format code
+poetry run black .
+
+# Sort imports
+poetry run isort .
+
+# Type checking
+poetry run mypy api/
+```
+
+**Linter Configuration:**
+- `ruff` - Fast Python linter (configured in `pyproject.toml`)
+- `black` - Code formatter (100 char line length)
+- `isort` - Import sorting (black-compatible profile)
+- `mypy` - Type checking (configured in `pyproject.toml`)
+
+### Running Tests
+
+The API includes comprehensive unit tests using pytest.
+
+**Run all tests:**
+```bash
+poetry run pytest
+```
+
+**Run with coverage report:**
+```bash
+poetry run pytest --cov
+```
+
+**Run specific test file:**
+```bash
+poetry run pytest tests/test_api.py
+```
+
+**Run tests in watch mode:**
+```bash
+poetry run pytest -f
+```
+
+**Test Coverage:**
+- API endpoints
+- Cache functionality
+- Data processing
+- Error handling
+
+Test files are located in the `tests/` directory at the project root.
+
 ## Troubleshooting
 
 ### Missing Environment Variables

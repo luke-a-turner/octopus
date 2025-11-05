@@ -60,7 +60,25 @@ git clone <repository-url>
 cd octopus
 ```
 
-### 2. Configure Environment Variables
+### 2. Install Make (if needed)
+
+**Windows:**
+- Install via [Chocolatey](https://chocolatey.org/): `choco install make`
+- Or use [WSL](https://docs.microsoft.com/en-us/windows/wsl/)
+- Or use Git Bash (includes make)
+
+**macOS:**
+```bash
+xcode-select --install
+```
+
+**Linux:**
+```bash
+sudo apt-get install build-essential  # Debian/Ubuntu
+sudo yum groupinstall "Development Tools"  # CentOS/RHEL
+```
+
+### 3. Configure Environment Variables
 
 Create a `.env` file from the example template:
 
@@ -95,41 +113,49 @@ SERIAL_NUMBER=your_serial_number_here
 - Also available on your electricity bill
 - Format varies by meter type (e.g., `21L4373149`)
 
-### 3. Install Backend Dependencies
+### 4. Install All Dependencies
 
+Using Makefile (recommended):
 ```bash
-# Install Poetry if you haven't already
-curl -sSL https://install.python-poetry.org | python3 -
-
-# Install Python dependencies
-poetry install
+make install
 ```
 
-### 4. Install Frontend Dependencies
-
+Or manually:
 ```bash
-cd frontend
-npm install
-cd ..
+# Backend
+poetry install
+
+# Frontend
+cd frontend && npm install
 ```
 
 ### 5. Start the Application
 
-**Terminal 1 - Start Backend API:**
+**Option A: Using Makefile (in separate terminals)**
 
+Terminal 1 - Backend:
+```bash
+make dev-backend
+```
+
+Terminal 2 - Frontend:
+```bash
+make dev-frontend
+```
+
+**Option B: Manually**
+
+Terminal 1 - Backend:
 ```bash
 poetry run uvicorn api.api:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
-
-**Terminal 2 - Start Frontend:**
-
+Terminal 2 - Frontend:
 ```bash
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
 
+The API will be available at `http://localhost:8000`
 The frontend will be available at `http://localhost:5173`
 
 ### 6. Access the Dashboard
@@ -186,16 +212,95 @@ All data endpoints (except live data) are cached for 1 hour to:
 - Stay within rate limits
 - Decrease server load
 
+## Makefile Commands
+
+The project includes a comprehensive Makefile for easy command execution.
+
+### Quick Reference
+
+```bash
+make help           # Show all available commands
+make install        # Install all dependencies
+make test           # Run all tests
+make lint           # Run all linters
+make format         # Format all code
+make check          # Run format + lint + test
+make clean          # Clean cache files
+```
+
+### Common Development Tasks
+
+```bash
+# Development
+make dev-backend              # Start backend server
+make dev-frontend             # Start frontend server
+
+# Testing
+make test                     # Run all tests
+make test-backend             # Backend tests only
+make test-frontend            # Frontend tests only
+make test-coverage            # Generate coverage reports
+
+# Linting
+make lint                     # Check all code
+make lint-backend             # Check backend only
+make lint-frontend            # Check frontend only
+make lint-fix                 # Auto-fix all issues
+
+# Formatting
+make format                   # Format all code
+make format-backend           # Format backend only
+make format-frontend          # Format frontend only
+
+# Quality Checks
+make check                    # Full quality check (format + lint + test)
+make check-backend            # Backend quality check
+make check-frontend           # Frontend quality check
+make pre-commit               # Quick pre-commit check (format + lint)
+make quick-check              # Auto-fix and test
+
+# Cache Management
+make cache-clear              # Clear API cache
+make cache-info               # View cache status
+
+# Build
+make build                    # Build for production
+make clean                    # Clean cache files
+make clean-all                # Clean everything including deps
+```
+
 ## Development
 
 ### Backend Development
 
+**Using Makefile:**
+```bash
+make dev-backend              # Start server
+make test-backend             # Run tests
+make lint-backend             # Check code
+make format-backend           # Format code
+```
+
+**Or manually:**
 ```bash
 # Activate Poetry shell
 poetry shell
 
 # Run with auto-reload
 poetry run uvicorn api.api:app --reload
+
+# Run tests
+poetry run pytest
+
+# Run tests with coverage
+poetry run pytest --cov
+
+# Linting
+poetry run ruff check .              # Check for issues
+poetry run ruff check . --fix        # Auto-fix issues
+poetry run black .                   # Format code
+poetry run isort .                   # Sort imports
+poetry run mypy api/                 # Type checking
 
 # Add new dependencies
 poetry add package-name
@@ -206,6 +311,15 @@ poetry update
 
 ### Frontend Development
 
+**Using Makefile:**
+```bash
+make dev-frontend             # Start server
+make test-frontend            # Run tests
+make lint-frontend            # Check code
+make format-frontend          # Format code
+```
+
+**Or manually:**
 ```bash
 cd frontend
 
@@ -217,6 +331,22 @@ npm run build
 
 # Preview production build
 npm run preview
+
+# Run tests
+npm test
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run coverage
+
+# Linting
+npm run lint                         # Check for issues
+npm run lint:fix                     # Auto-fix issues
+npm run format                       # Format code with Prettier
+npm run format:check                 # Check formatting
+npm run type-check                   # TypeScript type checking
 
 # Add new dependencies
 npm install package-name
@@ -352,12 +482,139 @@ npm run build
 
 Private project
 
+## Code Quality
+
+### Linting
+
+The project uses linting tools to maintain code quality and consistency.
+
+**Backend (Python):**
+- **Ruff** - Fast Python linter
+- **Black** - Code formatter
+- **isort** - Import sorter
+- **mypy** - Static type checker
+
+**Frontend (TypeScript):**
+- **ESLint** - JavaScript/TypeScript linter
+- **Prettier** - Code formatter
+- **TypeScript** - Type checking
+
+### Running Linters
+
+**Backend:**
+```bash
+# Check all issues
+poetry run ruff check .
+
+# Auto-fix issues
+poetry run ruff check . --fix
+
+# Format code
+poetry run black .
+
+# Sort imports
+poetry run isort .
+
+# Type check
+poetry run mypy api/
+```
+
+**Frontend:**
+```bash
+cd frontend
+
+# Lint code
+npm run lint
+
+# Fix linting issues
+npm run lint:fix
+
+# Format code
+npm run format
+
+# Check formatting
+npm run format:check
+
+# Type check
+npm run type-check
+```
+
+### IDE Integration
+
+VSCode settings are included in `.vscode/` for automatic formatting and linting:
+- Format on save enabled
+- ESLint/Ruff auto-fix on save
+- Recommended extensions in `.vscode/extensions.json`
+
+## Testing
+
+### Backend Tests (Python/Pytest)
+
+The backend uses pytest for unit testing.
+
+**Run all tests:**
+```bash
+poetry run pytest
+```
+
+**Run with coverage report:**
+```bash
+poetry run pytest --cov
+```
+
+**Run specific test file:**
+```bash
+poetry run pytest tests/test_cache.py
+```
+
+**Test files:**
+- `tests/test_api.py` - API endpoint tests
+- `tests/test_cache.py` - Caching functionality tests
+- `tests/conftest.py` - Pytest configuration and fixtures
+
+### Frontend Tests (Vitest/React Testing Library)
+
+The frontend uses Vitest and React Testing Library.
+
+**Run all tests:**
+```bash
+cd frontend
+npm test
+```
+
+**Run tests with UI:**
+```bash
+npm run test:ui
+```
+
+**Run with coverage:**
+```bash
+npm run coverage
+```
+
+**Test files:**
+- `src/test/App.test.tsx` - App component tests
+- `src/test/setup.ts` - Test configuration
+
 ## Contributing
 
 1. Create a feature branch
 2. Make your changes
-3. Test thoroughly (backend and frontend)
-4. Submit a pull request
+3. **Write tests** for new features
+4. **Run quality checks** before committing
+   ```bash
+   make check          # Run all checks (format, lint, test)
+   # or
+   make pre-commit     # Quick check (format + lint only)
+   ```
+5. Submit a pull request
+
+### Commit Checklist
+- [ ] `make format` - Code is formatted
+- [ ] `make lint` - No linting errors
+- [ ] `make test` - All tests pass
+- [ ] Write tests for new features
+- [ ] Update documentation if needed
 
 ## Support
 
