@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Cache
+.vite/
+.cache/
+
+# Misc
+*.log
+.DS_Store
+coverage/

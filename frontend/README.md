@@ -196,6 +196,98 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+## Code Quality
+
+### Linting and Formatting
+
+The frontend uses ESLint and Prettier for code quality.
+
+**Linting:**
+```bash
+# Check for linting errors
+npm run lint
+
+# Auto-fix linting issues
+npm run lint:fix
+```
+
+**Formatting:**
+```bash
+# Format code with Prettier
+npm run format
+
+# Check if code is formatted
+npm run format:check
+```
+
+**Type Checking:**
+```bash
+# Run TypeScript type checking
+npm run type-check
+```
+
+**Configuration:**
+- ESLint config: `.eslintrc.cjs`
+- Prettier config: `.prettierrc`
+- TypeScript config: `tsconfig.json`
+
+## Testing
+
+The frontend uses Vitest and React Testing Library for unit testing.
+
+### Running Tests
+
+**Run all tests:**
+```bash
+npm test
+```
+
+**Run tests in watch mode:**
+```bash
+npm test -- --watch
+```
+
+**Run tests with UI:**
+```bash
+npm run test:ui
+```
+
+**Run with coverage report:**
+```bash
+npm run coverage
+```
+
+### Test Files
+
+- `src/test/App.test.tsx` - App component tests
+- `src/test/setup.ts` - Test configuration
+
+### Writing Tests
+
+Tests use Vitest and React Testing Library. Example test:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import App from '../App';
+
+describe('App', () => {
+  it('renders dashboard title', () => {
+    render(<App />);
+    expect(screen.getByText('Octopus Energy Dashboard')).toBeInTheDocument();
+  });
+});
+```
+
+### Test Coverage
+
+Current tests cover:
+- Component rendering
+- Loading states
+- API calls and data fetching
+- Error handling
+- Data processing
+
 ## Development
 
 ### Adding New Features
@@ -203,6 +295,7 @@ npm install
 1. **New API Endpoint**: Add axios call in `App.tsx` useEffect
 2. **New Chart Type**: Add new trace to `chartData` state
 3. **Styling**: Modify inline styles or add CSS file
+4. **Write Tests**: Add tests for new features in `src/test/`
 
 ### Type Definitions
 
