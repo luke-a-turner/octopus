@@ -86,7 +86,7 @@ export async function fetchDashboardData(
   const consumptionColors = ['#75DB0D', '#67A626', '#6B8F46'];
   const consumptionTraces: Data[] = Object.entries(grouped).map(([date, items], index) => {
     items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-    return {
+    return items.some((item) => item.consumption) ? {
       x: items.map((item) => item.time),
       y: items.map((item) => item.consumption),
       type: 'bar',
@@ -96,7 +96,7 @@ export async function fetchDashboardData(
         size: 6,
         color: consumptionColors[index % tariffColors.length],
       },
-    };
+    } : {};
   });
 
   const chartData = [...tariffTraces, ...consumptionTraces];

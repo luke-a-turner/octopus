@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 from api.async_request import GraphqlRequest
 from api.cache import async_cache, clear_cache, get_cache_info
-from api.constants import Endpoint, Field, Identifier, Url
-from api.processing import get_polars_dataframe
+from api.constants import Field, Identifier, Product, Tariff, Url
+from api.processing import DataType, get_polars_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,10 @@ class TariffAndConsumptionData(BaseModel):
     consumption: float
 
 
+TARIFF_URL = f"{Url.REST_API}products/{Product.AGILE_24_10_01}/electricity-tariffs/{Tariff.SOUTH_EAST}/standard-unit-rates/"
+CONSUMPTION_URL = f"{Url.REST_API}electricity-meter-points/{Identifier.MPAN}/meters/{Identifier.SERIAL_NUMBER}/consumption/"
+
+
 @app.get("/tariff-data-today")
 @async_cache
 async def get_tariff_data_today() -> list[TariffData]:
@@ -54,11 +58,12 @@ async def get_tariff_data_today() -> list[TariffData]:
     end_datetime = datetime(today.year, today.month, today.day, 23, 59, 59)
 
     df = await get_polars_dataframe(
-        f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
+        TARIFF_URL,
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
+        DataType.TARIFF,
     )
     return cast(list[TariffData], df.to_dicts())
 
@@ -74,11 +79,12 @@ async def get_tariff_today_and_tomorrow() -> list[TariffData]:
     end_datetime = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 23, 59, 59)
 
     df = await get_polars_dataframe(
-        f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
+        TARIFF_URL,
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
+        DataType.TARIFF,
     )
     return cast(list[TariffData], df.to_dicts())
 
@@ -89,10 +95,13 @@ async def get_smart_meter_historic_consumption(
     start_datetime: datetime, end_datetime: datetime
 ) -> list[ConsumptionData]:
     """Get historic smart meter energy usage (cached for 1 hour)"""
-    url = f"https://api.octopus.energy/v1/electricity-meter-points/{Identifier.MPAN}/meters/{Identifier.SERIAL_NUMBER}/consumption/"
-
     df = await get_polars_dataframe(
-        url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION
+        CONSUMPTION_URL,
+        start_datetime,
+        end_datetime,
+        Field.INTERVAL_START,
+        Field.CONSUMPTION,
+        DataType.CONSUMPTION,
     )
     return cast(list[ConsumptionData], df.to_dicts())
 
@@ -104,16 +113,21 @@ async def get_tariff_rates_with_historic_consumption(
 ) -> list[TariffAndConsumptionData]:
     """Get agile tariff rates for time period with consumption data (cached for 1 hour)"""
     df_tariff_rates = await get_polars_dataframe(
-        f"{Url.REST_API}{Endpoint.STANDARD_UNIT_RATES}",
+        TARIFF_URL,
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
+        DataType.TARIFF,
     )
 
-    consumption_url = f"https://api.octopus.energy/v1/electricity-meter-points/{Identifier.MPAN}/meters/{Identifier.SERIAL_NUMBER}/consumption/"
     df_consumption = await get_polars_dataframe(
-        consumption_url, start_datetime, end_datetime, Field.INTERVAL_START, Field.CONSUMPTION
+        CONSUMPTION_URL,
+        start_datetime,
+        end_datetime,
+        Field.INTERVAL_START,
+        Field.CONSUMPTION,
+        DataType.CONSUMPTION,
     )
 
     df = df_tariff_rates.join(

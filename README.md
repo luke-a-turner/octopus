@@ -16,7 +16,9 @@ This project provides real-time visualization of electricity prices and smart me
 - 🌙 Dark theme interface
 - 📈 Dual y-axis charts for price vs usage comparison
 - 🔄 Async data fetching for optimal performance
-- 💾 1-hour response caching for improved performance
+- 💾 PostgreSQL database caching for persistent data storage
+- 🗄️ Automatic database fallback - checks DB before making API calls
+- 📦 In-memory caching (1 hour) for frequently accessed data
 - 🎨 Custom color schemes for data visualization
 
 ## Project Structure
@@ -27,8 +29,15 @@ octopus/
 │   ├── api.py             # Main API endpoints
 │   ├── async_request.py   # Async HTTP handlers
 │   ├── constants.py       # Configuration constants
-│   ├── functions.py       # Helper functions
+│   ├── database.py        # Database operations (SQLAlchemy queries)
+│   ├── db_session.py      # SQLAlchemy async session management
+│   ├── models.py          # SQLAlchemy ORM models (Tariff, Consumption)
+│   ├── processing.py      # Data processing with DB caching
 │   └── README.md          # API documentation
+├── db/                    # Database schema and initialization
+│   ├── schema.sql         # PostgreSQL schema definition
+│   ├── init_db.py         # Database initialization script
+│   └── README.md          # Database documentation
 ├── frontend/              # React TypeScript application
 │   ├── src/
 │   │   ├── App.tsx       # Main React component
@@ -36,12 +45,12 @@ octopus/
 │   ├── index.html        # HTML template
 │   ├── package.json      # Node dependencies
 │   └── README.md         # Frontend documentation
-├── agile/                # Utility modules
-├── .env                  # Environment variables (DO NOT COMMIT)
-├── .env.example          # Environment template
-├── .gitignore           # Git ignore rules
-├── pyproject.toml       # Python dependencies
-└── README.md            # This file
+├── tests/                 # Backend tests
+├── .env                   # Environment variables (DO NOT COMMIT)
+├── .env.example           # Environment template
+├── .gitignore             # Git ignore rules
+├── pyproject.toml         # Python dependencies
+└── README.md              # This file
 ```
 
 ## Prerequisites
@@ -49,6 +58,7 @@ octopus/
 - **Python 3.12+**
 - **Node.js 16+**
 - **Poetry** (Python package manager)
+- **PostgreSQL 12+** (for data persistence)
 - **Octopus Energy account** with API access
 
 ## Quick Start
@@ -113,7 +123,74 @@ SERIAL_NUMBER=your_serial_number_here
 - Also available on your electricity bill
 - Format varies by meter type (e.g., `21L4373149`)
 
-### 4. Install All Dependencies
+### 4. Set Up PostgreSQL Database
+
+The application uses PostgreSQL to cache tariff and consumption data, reducing API calls and improving performance.
+
+**Install PostgreSQL (if not already installed):**
+
+**Windows:**
+```bash
+# Using Chocolatey
+choco install postgresql
+
+# Or download installer from https://www.postgresql.org/download/windows/
+```
+
+**macOS:**
+```bash
+brew install postgresql
+brew services start postgresql
+```
+
+**Linux:**
+```bash
+# Debian/Ubuntu
+sudo apt-get install postgresql postgresql-contrib
+
+# Start service
+sudo systemctl start postgresql
+```
+
+**Initialize the database:**
+
+```bash
+# Using the provided Python script (recommended)
+poetry install  # If not already done
+python db/init_db.py
+
+# Or using psql directly
+psql -d postgres -f db/schema.sql
+```
+
+The initialization script will:
+- Create the `octopus` database
+- Create `tariff` and `consumption` tables
+- Create the `octopus_rw` user with read/write permissions
+
+**Optional: Configure database connection**
+
+The application uses the following default database settings:
+
+```bash
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=octopus
+PGUSER=octopus_rw
+PGPASSWORD=octopus_rw
+```
+
+To use different settings, add these variables to your `.env` file.
+
+**Security Note:** For production, change the default `octopus_rw` password:
+
+```sql
+ALTER USER octopus_rw WITH PASSWORD 'your_secure_password';
+```
+
+For detailed database documentation, see [db/README.md](db/README.md)
+
+### 5. Install All Dependencies
 
 Using Makefile (recommended):
 ```bash
@@ -129,7 +206,7 @@ poetry install
 cd frontend && npm install
 ```
 
-### 5. Start the Application
+### 6. Start the Application
 
 **Option A: Using Makefile (in separate terminals)**
 
@@ -158,7 +235,7 @@ cd frontend && npm run dev
 The API will be available at `http://localhost:8000`
 The frontend will be available at `http://localhost:5173`
 
-### 6. Access the Dashboard
+### 7. Access the Dashboard
 
 Open your browser and navigate to:
 - **Dashboard:** http://localhost:5173
@@ -172,9 +249,21 @@ The application uses environment variables for sensitive configuration. These mu
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `OCTOPUS_API_KEY` | Your Octopus Energy API key | `sk_live_abc123...` |
+| `API_KEY` | Your Octopus Energy API key | `sk_live_abc123...` |
 | `MPAN` | Meter Point Administration Number | `2000011405806` |
 | `SERIAL_NUMBER` | Electricity meter serial number | `21L4373149` |
+
+### Optional Database Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PGHOST` | PostgreSQL host | `localhost` |
+| `PGPORT` | PostgreSQL port | `5432` |
+| `PGDATABASE` | Database name | `octopus` |
+| `PGUSER` | Database user | `octopus_rw` |
+| `PGPASSWORD` | Database password | `octopus_rw` |
+
+Only set these if you want to use non-default database settings.
 
 ### Security Notes
 
@@ -204,13 +293,42 @@ The backend provides the following REST endpoints:
 
 For detailed API documentation, see [api/README.md](api/README.md) or visit http://localhost:8000/docs
 
-### Caching
+### Data Caching Strategy
 
-All data endpoints (except live data) are cached for 1 hour to:
-- Reduce API calls to Octopus Energy
-- Improve response times
-- Stay within rate limits
-- Decrease server load
+The application uses a two-layer caching system for optimal performance:
+
+#### 1. PostgreSQL Database (Persistent Cache)
+- **Tariff data** stored in `tariff` table
+- **Consumption data** stored in `consumption` table
+- Data persists across application restarts
+- Automatically checks database before making API calls (async operations)
+- Prevents duplicate API calls for historical data
+- Uses SQLAlchemy async ORM with connection pooling for high performance
+- Type-safe database operations with SQLAlchemy models
+
+**Data Flow (Async with SQLAlchemy):**
+1. Request received for data
+2. Async SQLAlchemy query checks PostgreSQL database first
+3. If data exists in DB → return immediately (non-blocking)
+4. If data not in DB → fetch from Octopus Energy API (async)
+5. Save API response to database using SQLAlchemy ORM (async batch insert with ON CONFLICT handling)
+6. Return data to client
+
+#### 2. In-Memory Cache (1-hour TTL)
+- Fast in-memory caching with `cachetools`
+- Applied on top of database layer
+- Reduces database queries for frequently accessed data
+- Automatically expires after 1 hour
+- Can be manually cleared via API endpoint
+
+**Benefits:**
+- ⚡ **Faster responses** - Database check is much faster than API calls
+- 💰 **Cost savings** - Reduces API calls to Octopus Energy
+- 📊 **Historical data** - Build up a history of tariff and consumption data
+- 🔄 **Reliability** - Data persists even if API is temporarily unavailable
+- 🚀 **Scalability** - Can handle more users without hitting API rate limits
+- 🛡️ **Type Safety** - SQLAlchemy models provide type checking and validation
+- 🔧 **Maintainability** - ORM abstraction makes code easier to maintain and test
 
 ## Makefile Commands
 
@@ -359,7 +477,10 @@ npm install package-name
 - Polars for data processing
 - aiohttp for async HTTP requests
 - python-dotenv for environment variables
-- cachetools for response caching
+- PostgreSQL for persistent data storage
+- SQLAlchemy (async) for ORM and database operations
+- asyncpg for PostgreSQL async driver
+- cachetools for in-memory response caching
 
 **Frontend (TypeScript/React):**
 - React 18 with TypeScript
@@ -469,6 +590,9 @@ npm run build
 - [Polars](https://www.pola.rs/) - Fast DataFrame library
 - [aiohttp](https://docs.aiohttp.org/) - Async HTTP client/server
 - [Uvicorn](https://www.uvicorn.org/) - ASGI server
+- [PostgreSQL](https://www.postgresql.org/) - Powerful open-source relational database
+- [SQLAlchemy](https://www.sqlalchemy.org/) - Async ORM and database toolkit
+- [asyncpg](https://magicstack.github.io/asyncpg/) - Fast async PostgreSQL driver
 - [cachetools](https://cachetools.readthedocs.io/) - Extensible memoizing collections
 
 ### Frontend
@@ -627,10 +751,12 @@ For issues:
 ## Roadmap
 
 - [x] Cache data for 1 hour (implemented with cachetools)
+- [x] Persistent cache (implemented with PostgreSQL)
+- [x] Automatic database fallback for API data
 - [ ] Add cost calculation features
 - [ ] Historical data comparison
 - [ ] Export data to CSV
-- [ ] Persistent cache (Redis or PostgreSQL?)
+- [ ] Database query optimizations and indexes
 - [ ] User preferences and settings
 - [ ] Integration with home automation systems
 - [ ] Additional charting options

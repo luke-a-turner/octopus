@@ -1,6 +1,8 @@
 """
 Pytest configuration and fixtures
 """
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -39,3 +41,13 @@ def sample_usage_data():
         {"interval_start": "2024-01-01T00:30:00", "consumption": 0.6},
         {"interval_start": "2024-01-01T01:00:00", "consumption": 0.4},
     ]
+
+
+@pytest.fixture(autouse=True)
+def mock_database_functions():
+    """Mock async database functions for all tests to avoid requiring a real database"""
+    with patch("api.processing.get_tariff_data_from_db", new_callable=AsyncMock, return_value=None):
+        with patch("api.processing.get_consumption_data_from_db", new_callable=AsyncMock, return_value=None):
+            with patch("api.processing.insert_tariff_data_to_db", new_callable=AsyncMock, return_value=True):
+                with patch("api.processing.insert_consumption_data_to_db", new_callable=AsyncMock, return_value=True):
+                    yield

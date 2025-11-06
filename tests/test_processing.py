@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 from api.constants import Field
-from api.processing import get_polars_dataframe
+from api.processing import DataType, get_polars_dataframe
 
 
 @pytest.mark.asyncio
@@ -41,6 +41,7 @@ async def test_get_polars_dataframe_basic():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         assert isinstance(df, pl.DataFrame)
@@ -83,6 +84,7 @@ async def test_get_polars_dataframe_datetime_filtering():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
         print(df)
 
@@ -129,6 +131,7 @@ async def test_get_polars_dataframe_calculates_pages():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         # Should call fetch_results with list of URLs
@@ -173,6 +176,7 @@ async def test_get_polars_dataframe_multiple_batches():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         # Should concatenate both batches
@@ -209,6 +213,7 @@ async def test_get_polars_dataframe_consumption_data():
             end_datetime,
             Field.INTERVAL_START,
             Field.CONSUMPTION,
+            DataType.CONSUMPTION,
         )
 
         assert isinstance(df, pl.DataFrame)
@@ -236,6 +241,7 @@ async def test_get_polars_dataframe_empty_results():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         assert isinstance(df, pl.DataFrame)
@@ -268,6 +274,7 @@ async def test_get_polars_dataframe_datetime_conversion():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         # Check that the datetime column is of datetime type
@@ -301,6 +308,7 @@ async def test_get_polars_dataframe_long_date_range():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         # Should request multiple pages for 7 days of data
@@ -335,6 +343,7 @@ async def test_get_polars_dataframe_selects_correct_columns():
             end_datetime,
             Field.VALID_FROM,
             Field.VALUE,
+            DataType.TARIFF,
         )
 
         # Should only have the two specified columns

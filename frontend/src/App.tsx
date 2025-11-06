@@ -15,7 +15,7 @@ function App() {
   });
 
   useEffect(() => {
-    fetchDashboardData('2025-11-03T00:00:00', '2025-11-05T23:59:59')
+    fetchDashboardData('2025-11-05T00:00:00', '2025-11-07T23:59:59')
       .then((data) => {
         setChartData(data.chartData);
         setCostSummary(data.costSummary);

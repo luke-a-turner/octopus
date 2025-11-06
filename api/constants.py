@@ -15,10 +15,12 @@ class Url(StrEnum):
     REST_API = "https://api.octopus.energy/v1/"
 
 
-class Endpoint(StrEnum):
-    STANDARD_UNIT_RATES = (
-        "products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-J/standard-unit-rates/"
-    )
+class Tariff(StrEnum):
+    SOUTH_EAST = "E-1R-AGILE-24-10-01-J"
+
+
+class Product(StrEnum):
+    AGILE_24_10_01 = "AGILE-24-10-01"
 
 
 class Identifier(StrEnum):
