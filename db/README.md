@@ -54,8 +54,8 @@ The easiest way to initialize the database is using the provided Python script:
 # Using Poetry (recommended if you're using the project's other dependencies)
 poetry install
 
-# Or using pip directly (install psycopg2-binary for the setup script)
-pip install psycopg2-binary
+# Or using pip directly (install psycopg-binary for the setup script)
+pip install psycopg-binary
 
 # Run the initialization script
 python db/init_db.py
@@ -67,7 +67,7 @@ The script will:
 - Create the `octopus_rw` user with appropriate permissions
 - Display connection information when complete
 
-**Note:** The initialization script uses `psycopg2` for setup. The main application uses `SQLAlchemy` (async) with `asyncpg` driver for database operations.
+**Note:** The initialization script uses `psycopg3` for setup. The main application uses `SQLAlchemy` (async) with `psycopg3` driver for database operations.
 
 **Environment variables** (optional):
 ```bash
@@ -104,46 +104,41 @@ createdb octopus
 psql -d octopus -f db/schema.sql
 ```
 
-### Option 4: Using Python (psycopg2)
+### Option 4: Using Python (psycopg3)
 ```python
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import psycopg
+from psycopg import sql
 
 # First, connect to postgres database to create octopus database
-conn = psycopg2.connect(
+with psycopg.connect(
     host="localhost",
-    database="postgres",
+    dbname="postgres",
     user="your_username",
-    password="your_password"
-)
-conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-
-with conn.cursor() as cur:
-    # Check if database exists
-    cur.execute("SELECT 1 FROM pg_database WHERE datname='octopus'")
-    if not cur.fetchone():
-        cur.execute("CREATE DATABASE octopus")
-
-conn.close()
+    password="your_password",
+    autocommit=True
+) as conn:
+    with conn.cursor() as cur:
+        # Check if database exists
+        cur.execute("SELECT 1 FROM pg_database WHERE datname='octopus'")
+        if not cur.fetchone():
+            cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier("octopus")))
 
 # Now connect to octopus database and create tables
-conn = psycopg2.connect(
+with psycopg.connect(
     host="localhost",
-    database="octopus",
+    dbname="octopus",
     user="your_username",
     password="your_password"
-)
+) as conn:
+    with open('db/schema.sql', 'r') as f:
+        sql_content = f.read()
+        # Skip the database creation parts
+        sql_parts = sql_content.split('\\c octopus')[1] if '\\c octopus' in sql_content else sql_content
 
-with open('db/schema.sql', 'r') as f:
-    sql = f.read()
-    # Skip the database creation parts
-    sql_parts = sql.split('\\c octopus')[1] if '\\c octopus' in sql else sql
+    with conn.cursor() as cur:
+        cur.execute(sql_parts)
 
-with conn.cursor() as cur:
-    cur.execute(sql_parts)
-
-conn.commit()
-conn.close()
+    conn.commit()
 ```
 
 ## Connecting to the Database
@@ -156,26 +151,24 @@ psql -h localhost -d octopus -U octopus_rw
 # Password: octopus_rw
 ```
 
-### Using Python (psycopg2)
+### Using Python (psycopg3)
 ```python
-import psycopg2
+import psycopg
 
-conn = psycopg2.connect(
+with psycopg.connect(
     host="localhost",
-    database="octopus",
+    dbname="octopus",
     user="octopus_rw",
     password="octopus_rw"
-)
+) as conn:
+    # Example: Insert data into tariff table
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO tariff (product, tariff, valid_from, value_inc_vat)
+            VALUES (%s, %s, %s, %s)
+        """, ('AGILE-24-04-03', 'E-1R-AGILE-24-04-03-A', '2024-04-03 00:00:00', 15.5))
 
-# Example: Insert data into tariff table
-with conn.cursor() as cur:
-    cur.execute("""
-        INSERT INTO tariff (product, tariff, valid_from, value_inc_vat)
-        VALUES (%s, %s, %s, %s)
-    """, ('AGILE-24-04-03', 'E-1R-AGILE-24-04-03-A', '2024-04-03 00:00:00', 15.5))
-
-conn.commit()
-conn.close()
+    conn.commit()
 ```
 
 ### Connection String

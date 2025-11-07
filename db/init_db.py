@@ -3,14 +3,14 @@
 Database initialization script for Octopus project.
 Creates the PostgreSQL database, tables, indexes, and user from schema.sql
 
-Note: This script uses psycopg2 for synchronous database setup.
-The main application uses SQLAlchemy with asyncpg for async operations.
+Note: This script uses psycopg3 for synchronous database setup.
+The main application uses SQLAlchemy with psycopg3 for async operations.
 """
 
 import os
 import sys
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import psycopg
+from psycopg import sql
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -42,26 +42,25 @@ def create_database(config, db_name):
 
     try:
         # Connect to postgres database to create octopus database
-        conn = psycopg2.connect(
+        with psycopg.connect(
             host=config['host'],
             port=config['port'],
-            database='postgres',
-            user=config['user']
-        )
-        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            dbname='postgres',
+            user=config['user'],
+            autocommit=True
+        ) as conn:
+            if database_exists(conn, db_name):
+                print(f"Database '{db_name}' already exists.")
+            else:
+                print(f"Creating database '{db_name}'...")
+                with conn.cursor() as cur:
+                    # Use sql.Identifier for safe database name handling
+                    cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+                print(f"Database '{db_name}' created successfully.")
 
-        if database_exists(conn, db_name):
-            print(f"Database '{db_name}' already exists.")
-        else:
-            print(f"Creating database '{db_name}'...")
-            with conn.cursor() as cur:
-                cur.execute(f"CREATE DATABASE {db_name}")
-            print(f"Database '{db_name}' created successfully.")
-
-        conn.close()
         return True
 
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         print(f"Error connecting to PostgreSQL: {e}")
         return False
 
@@ -72,86 +71,84 @@ def execute_schema(config, db_name, schema_file):
 
     try:
         # Connect to octopus database
-        conn = psycopg2.connect(
+        with psycopg.connect(
             host=config['host'],
             port=config['port'],
-            database=db_name,
+            dbname=db_name,
             user=config['user'],
             password=config['password']
-        )
+        ) as conn:
+            # Read schema file
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.join(script_dir, schema_file)
 
-        # Read schema file
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        schema_path = os.path.join(script_dir, schema_file)
+            if not os.path.exists(schema_path):
+                print(f"Error: Schema file '{schema_path}' not found.")
+                return False
 
-        if not os.path.exists(schema_path):
-            print(f"Error: Schema file '{schema_path}' not found.")
-            return False
+            print(f"Reading schema from '{schema_file}'...")
+            with open(schema_path, 'r') as f:
+                sql_content = f.read()
 
-        print(f"Reading schema from '{schema_file}'...")
-        with open(schema_path, 'r') as f:
-            sql_content = f.read()
+            # Remove psql-specific commands that aren't needed
+            # (database already created and we're already connected)
+            lines = sql_content.split('\n')
+            filtered_lines = []
+            skip_until_connect = True
 
-        # Remove psql-specific commands that aren't needed
-        # (database already created and we're already connected)
-        lines = sql_content.split('\n')
-        filtered_lines = []
-        skip_until_connect = True
+            for line in lines:
+                # Skip everything until after the \c octopus command
+                if skip_until_connect:
+                    if line.strip().startswith('\\c octopus'):
+                        skip_until_connect = False
+                    continue
 
-        for line in lines:
-            # Skip everything until after the \c octopus command
-            if skip_until_connect:
-                if line.strip().startswith('\\c octopus'):
-                    skip_until_connect = False
-                continue
+                # Skip \gexec commands
+                if '\\gexec' in line:
+                    continue
 
-            # Skip \gexec commands
-            if '\\gexec' in line:
-                continue
+                filtered_lines.append(line)
 
-            filtered_lines.append(line)
+            sql_to_execute = '\n'.join(filtered_lines)
 
-        sql_to_execute = '\n'.join(filtered_lines)
+            print("Creating tables, indexes, and user...")
 
-        print("Creating tables, indexes, and user...")
+            # Execute the SQL
+            with conn.cursor() as cur:
+                cur.execute(sql_to_execute)
 
-        # Execute the SQL
-        with conn.cursor() as cur:
-            cur.execute(sql_to_execute)
+            conn.commit()
+            print("Schema applied successfully!")
 
-        conn.commit()
-        print("Schema applied successfully!")
+            # Verify tables were created
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT table_name
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                    ORDER BY table_name
+                """)
+                tables = cur.fetchall()
 
-        # Verify tables were created
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'public'
-                ORDER BY table_name
-            """)
-            tables = cur.fetchall()
+                if tables:
+                    print(f"\nCreated tables:")
+                    for table in tables:
+                        print(f"  - {table[0]}")
 
-            if tables:
-                print(f"\nCreated tables:")
-                for table in tables:
-                    print(f"  - {table[0]}")
+                # Verify user was created
+                cur.execute("""
+                    SELECT usename
+                    FROM pg_catalog.pg_user
+                    WHERE usename = 'octopus_rw'
+                """)
+                user = cur.fetchone()
 
-            # Verify user was created
-            cur.execute("""
-                SELECT usename
-                FROM pg_catalog.pg_user
-                WHERE usename = 'octopus_rw'
-            """)
-            user = cur.fetchone()
+                if user:
+                    print(f"\nCreated user: octopus_rw")
 
-            if user:
-                print(f"\nCreated user: octopus_rw")
-
-        conn.close()
         return True
 
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         print(f"Error executing schema: {e}")
         return False
     except Exception as e:

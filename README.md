@@ -479,7 +479,7 @@ npm install package-name
 - python-dotenv for environment variables
 - PostgreSQL for persistent data storage
 - SQLAlchemy (async) for ORM and database operations
-- asyncpg for PostgreSQL async driver
+- psycopg3 for PostgreSQL async driver
 - cachetools for in-memory response caching
 
 **Frontend (TypeScript/React):**
@@ -592,7 +592,7 @@ npm run build
 - [Uvicorn](https://www.uvicorn.org/) - ASGI server
 - [PostgreSQL](https://www.postgresql.org/) - Powerful open-source relational database
 - [SQLAlchemy](https://www.sqlalchemy.org/) - Async ORM and database toolkit
-- [asyncpg](https://magicstack.github.io/asyncpg/) - Fast async PostgreSQL driver
+- [psycopg3](https://www.psycopg.org/psycopg3/) - Fast async PostgreSQL driver
 - [cachetools](https://cachetools.readthedocs.io/) - Extensible memoizing collections
 
 ### Frontend

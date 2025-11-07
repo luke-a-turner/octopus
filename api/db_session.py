@@ -24,10 +24,11 @@ def get_database_url() -> str:
     host = os.environ.get("PGHOST", "localhost")
     port = os.environ.get("PGPORT", "5432")
     database = os.environ.get("PGDATABASE", "octopus")
-    user = os.environ.get("PGUSER", "octopus_rw")
-    password = os.environ.get("PGPASSWORD", "octopus_rw")
+    user = os.environ.get("PGUSER_OCTOPUS", "octopus_rw")
+    password = os.environ.get("PGPASSWORD_OCTOPUS", "octopus_rw")
 
-    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+    # Use psycopg3 async driver for SQLAlchemy
+    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}"
 
 
 def get_engine():
