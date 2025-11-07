@@ -11,6 +11,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models"""
+
     pass
 
 
@@ -19,6 +20,7 @@ class Tariff(Base):
     Tariff table model.
     Stores electricity tariff pricing data with composite unique constraint.
     """
+
     __tablename__ = "tariff"
 
     tariff_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -27,15 +29,7 @@ class Tariff(Base):
     valid_from: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     value_inc_vat: Mapped[float] = mapped_column(Numeric, nullable=False)
 
-    __table_args__ = (
-        Index(
-            "idx_tariff_unique",
-            "product",
-            "tariff",
-            "valid_from",
-            unique=True
-        ),
-    )
+    __table_args__ = (Index("idx_tariff_unique", "product", "tariff", "valid_from", unique=True),)
 
     def __repr__(self) -> str:
         return (
@@ -49,6 +43,7 @@ class Consumption(Base):
     Consumption table model.
     Stores smart meter electricity consumption data with composite unique constraint.
     """
+
     __tablename__ = "consumption"
 
     consumption_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -58,13 +53,7 @@ class Consumption(Base):
     consumption: Mapped[float] = mapped_column(Numeric, nullable=False)
 
     __table_args__ = (
-        Index(
-            "idx_consumption_unique",
-            "mpan",
-            "serial_number",
-            "interval_start",
-            unique=True
-        ),
+        Index("idx_consumption_unique", "mpan", "serial_number", "interval_start", unique=True),
     )
 
     def __repr__(self) -> str:

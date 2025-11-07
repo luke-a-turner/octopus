@@ -5,7 +5,6 @@ Handles async database queries for tariff and consumption data.
 
 import logging
 from datetime import datetime
-from typing import Optional
 
 import polars as pl
 from sqlalchemy import and_, select
@@ -13,7 +12,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 from api.constants import Field, Identifier, Product, Tariff
 from api.db_session import get_session_maker
-from api.models import Consumption, Tariff as TariffModel
+from api.models import Consumption
+from api.models import Tariff as TariffModel
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ async def get_tariff_data_from_db(
     end_datetime: datetime,
     product: str = Product.AGILE_24_10_01,
     tariff: str = Tariff.SOUTH_EAST,
-) -> Optional[pl.DataFrame]:
+) -> pl.DataFrame | None:
     """
     Query tariff data from database for the given time range using SQLAlchemy.
     Returns None if no data found.
@@ -32,25 +32,24 @@ async def get_tariff_data_from_db(
         session_maker = get_session_maker()
         async with session_maker() as session:
             # Build query using SQLAlchemy select
-            stmt = select(
-                TariffModel.valid_from,
-                TariffModel.value_inc_vat
-            ).where(
-                and_(
-                    TariffModel.product == product,
-                    TariffModel.tariff == tariff,
-                    TariffModel.valid_from >= start_datetime,
-                    TariffModel.valid_from < end_datetime
+            stmt = (
+                select(TariffModel.valid_from, TariffModel.value_inc_vat)
+                .where(
+                    and_(
+                        TariffModel.product == product,
+                        TariffModel.tariff == tariff,
+                        TariffModel.valid_from >= start_datetime,
+                        TariffModel.valid_from < end_datetime,
+                    )
                 )
-            ).order_by(TariffModel.valid_from)
+                .order_by(TariffModel.valid_from)
+            )
 
             result = await session.execute(stmt)
             rows = result.all()
 
             if not rows:
-                logger.info(
-                    f"No tariff data in DB for {start_datetime} to {end_datetime}"
-                )
+                logger.info(f"No tariff data in DB for {start_datetime} to {end_datetime}")
                 return None
 
             # Convert to dictionaries for polars
@@ -75,7 +74,7 @@ async def get_consumption_data_from_db(
     end_datetime: datetime,
     mpan: str = Identifier.MPAN,
     serial_number: str = Identifier.SERIAL_NUMBER,
-) -> Optional[pl.DataFrame]:
+) -> pl.DataFrame | None:
     """
     Query consumption data from database for the given time range using SQLAlchemy.
     Returns None if no data found.
@@ -84,30 +83,32 @@ async def get_consumption_data_from_db(
         session_maker = get_session_maker()
         async with session_maker() as session:
             # Build query using SQLAlchemy select
-            stmt = select(
-                Consumption.interval_start,
-                Consumption.consumption
-            ).where(
-                and_(
-                    Consumption.mpan == mpan,
-                    Consumption.serial_number == serial_number,
-                    Consumption.interval_start >= start_datetime,
-                    Consumption.interval_start < end_datetime
+            stmt = (
+                select(Consumption.interval_start, Consumption.consumption)
+                .where(
+                    and_(
+                        Consumption.mpan == mpan,
+                        Consumption.serial_number == serial_number,
+                        Consumption.interval_start >= start_datetime,
+                        Consumption.interval_start < end_datetime,
+                    )
                 )
-            ).order_by(Consumption.interval_start)
+                .order_by(Consumption.interval_start)
+            )
 
             result = await session.execute(stmt)
             rows = result.all()
 
             if not rows:
-                logger.info(
-                    f"No consumption data in DB for {start_datetime} to {end_datetime}"
-                )
+                logger.info(f"No consumption data in DB for {start_datetime} to {end_datetime}")
                 return None
 
             # Convert to dictionaries for polars
             data = [
-                {Field.INTERVAL_START: row.interval_start, Field.CONSUMPTION: float(row.consumption)}
+                {
+                    Field.INTERVAL_START: row.interval_start,
+                    Field.CONSUMPTION: float(row.consumption),
+                }
                 for row in rows
             ]
             df = pl.DataFrame(data)
@@ -152,9 +153,7 @@ async def insert_tariff_data_to_db(
 
             # Use PostgreSQL INSERT ... ON CONFLICT DO NOTHING
             stmt = insert(TariffModel).values(records)
-            stmt = stmt.on_conflict_do_nothing(
-                index_elements=["product", "tariff", "valid_from"]
-            )
+            stmt = stmt.on_conflict_do_nothing(index_elements=["product", "tariff", "valid_from"])
 
             await session.execute(stmt)
             await session.commit()

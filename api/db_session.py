@@ -5,10 +5,9 @@ Handles async engine creation and session lifecycle.
 
 import logging
 import os
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
 
 from api.models import Base
 

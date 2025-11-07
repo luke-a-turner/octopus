@@ -9,30 +9,29 @@ The main application uses SQLAlchemy with psycopg3 for async operations.
 
 import os
 import sys
+
 import psycopg
-from psycopg import sql
 from dotenv import load_dotenv
+from psycopg import sql
 
 # Load environment variables from .env file
 load_dotenv()
 
+
 def get_db_config():
     """Get database configuration from environment variables or use defaults"""
     return {
-        'host': os.environ.get('PGHOST', 'localhost'),
-        'port': os.environ.get('PGPORT', '5432'),
-        'user': os.environ.get('PGUSER', 'postgres'),
-        'password': os.getenv('PGPASSWORD')
+        "host": os.environ.get("PGHOST", "localhost"),
+        "port": os.environ.get("PGPORT", "5432"),
+        "user": os.environ.get("PGUSER", "postgres"),
+        "password": os.getenv("PGPASSWORD"),
     }
 
 
 def database_exists(conn, db_name):
     """Check if database exists"""
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT 1 FROM pg_database WHERE datname = %s",
-            (db_name,)
-        )
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
         return cur.fetchone() is not None
 
 
@@ -43,11 +42,11 @@ def create_database(config, db_name):
     try:
         # Connect to postgres database to create octopus database
         with psycopg.connect(
-            host=config['host'],
-            port=config['port'],
-            dbname='postgres',
-            user=config['user'],
-            autocommit=True
+            host=config["host"],
+            port=config["port"],
+            dbname="postgres",
+            user=config["user"],
+            autocommit=True,
         ) as conn:
             if database_exists(conn, db_name):
                 print(f"Database '{db_name}' already exists.")
@@ -72,11 +71,11 @@ def execute_schema(config, db_name, schema_file):
     try:
         # Connect to octopus database
         with psycopg.connect(
-            host=config['host'],
-            port=config['port'],
+            host=config["host"],
+            port=config["port"],
             dbname=db_name,
-            user=config['user'],
-            password=config['password']
+            user=config["user"],
+            password=config["password"],
         ) as conn:
             # Read schema file
             script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -87,29 +86,29 @@ def execute_schema(config, db_name, schema_file):
                 return False
 
             print(f"Reading schema from '{schema_file}'...")
-            with open(schema_path, 'r') as f:
+            with open(schema_path) as f:
                 sql_content = f.read()
 
             # Remove psql-specific commands that aren't needed
             # (database already created and we're already connected)
-            lines = sql_content.split('\n')
+            lines = sql_content.split("\n")
             filtered_lines = []
             skip_until_connect = True
 
             for line in lines:
                 # Skip everything until after the \c octopus command
                 if skip_until_connect:
-                    if line.strip().startswith('\\c octopus'):
+                    if line.strip().startswith("\\c octopus"):
                         skip_until_connect = False
                     continue
 
                 # Skip \gexec commands
-                if '\\gexec' in line:
+                if "\\gexec" in line:
                     continue
 
                 filtered_lines.append(line)
 
-            sql_to_execute = '\n'.join(filtered_lines)
+            sql_to_execute = "\n".join(filtered_lines)
 
             print("Creating tables, indexes, and user...")
 
@@ -122,29 +121,33 @@ def execute_schema(config, db_name, schema_file):
 
             # Verify tables were created
             with conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT table_name
                     FROM information_schema.tables
                     WHERE table_schema = 'public'
                     ORDER BY table_name
-                """)
+                """
+                )
                 tables = cur.fetchall()
 
                 if tables:
-                    print(f"\nCreated tables:")
+                    print("\nCreated tables:")
                     for table in tables:
                         print(f"  - {table[0]}")
 
                 # Verify user was created
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT usename
                     FROM pg_catalog.pg_user
                     WHERE usename = 'octopus_rw'
-                """)
+                """
+                )
                 user = cur.fetchone()
 
                 if user:
-                    print(f"\nCreated user: octopus_rw")
+                    print("\nCreated user: octopus_rw")
 
         return True
 
@@ -162,8 +165,8 @@ def main():
     print("Octopus Database Initialization")
     print("=" * 60)
 
-    db_name = 'octopus'
-    schema_file = 'schema.sql'
+    db_name = "octopus"
+    schema_file = "schema.sql"
 
     # Get database configuration
     config = get_db_config()
@@ -188,12 +191,12 @@ def main():
     print("\n" + "=" * 60)
     print("Database initialization completed successfully!")
     print("=" * 60)
-    print(f"\nYou can now connect using:")
+    print("\nYou can now connect using:")
     print(f"  psql -h {config['host']} -d {db_name} -U octopus_rw")
-    print(f"  Password: octopus_rw")
-    print(f"\nConnection string:")
+    print("  Password: octopus_rw")
+    print("\nConnection string:")
     print(f"  postgresql://octopus_rw:octopus_rw@{config['host']}:{config['port']}/{db_name}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

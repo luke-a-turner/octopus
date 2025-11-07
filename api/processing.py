@@ -6,7 +6,7 @@ from math import ceil
 import polars as pl
 
 from api.async_request import RestRequest
-from api.constants import PAGE_SIZE, SECONDS_IN_HOUR, Field, Identifier, Product, Tariff
+from api.constants import PAGE_SIZE, SECONDS_IN_HOUR, Field
 from api.database import (
     get_consumption_data_from_db,
     get_tariff_data_from_db,
@@ -98,7 +98,7 @@ async def get_polars_dataframe(
         return db_data
 
     # Step 2: Data not in database, fetch from API
-    logger.info(f"Data not in database, fetching from API")
+    logger.info("Data not in database, fetching from API")
     api_data = await fetch_from_api(url, start_datetime, end_datetime, date_field, value_field)
 
     if api_data.is_empty():

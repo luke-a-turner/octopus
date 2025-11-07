@@ -47,7 +47,15 @@ def sample_usage_data():
 def mock_database_functions():
     """Mock async database functions for all tests to avoid requiring a real database"""
     with patch("api.processing.get_tariff_data_from_db", new_callable=AsyncMock, return_value=None):
-        with patch("api.processing.get_consumption_data_from_db", new_callable=AsyncMock, return_value=None):
-            with patch("api.processing.insert_tariff_data_to_db", new_callable=AsyncMock, return_value=True):
-                with patch("api.processing.insert_consumption_data_to_db", new_callable=AsyncMock, return_value=True):
+        with patch(
+            "api.processing.get_consumption_data_from_db", new_callable=AsyncMock, return_value=None
+        ):
+            with patch(
+                "api.processing.insert_tariff_data_to_db", new_callable=AsyncMock, return_value=True
+            ):
+                with patch(
+                    "api.processing.insert_consumption_data_to_db",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ):
                     yield
