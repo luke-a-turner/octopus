@@ -23,7 +23,7 @@ async def get_tariff_data_from_db(
     end_datetime: datetime,
     product: str = Product.AGILE_24_10_01,
     tariff: str = Tariff.SOUTH_EAST,
-) -> pl.DataFrame | None:
+) -> pl.DataFrame:
     """
     Query tariff data from database for the given time range using SQLAlchemy.
     Returns None if no data found.
@@ -50,7 +50,7 @@ async def get_tariff_data_from_db(
 
             if not rows:
                 logger.info(f"No tariff data in DB for {start_datetime} to {end_datetime}")
-                return None
+                return pl.DataFrame()
 
             # Convert to dictionaries for polars
             data = [
@@ -66,7 +66,7 @@ async def get_tariff_data_from_db(
 
     except Exception as e:
         logger.error(f"Error querying tariff data from database: {e}")
-        return None
+        return pl.DataFrame()
 
 
 async def get_consumption_data_from_db(
@@ -74,7 +74,7 @@ async def get_consumption_data_from_db(
     end_datetime: datetime,
     mpan: str = Identifier.MPAN,
     serial_number: str = Identifier.SERIAL_NUMBER,
-) -> pl.DataFrame | None:
+) -> pl.DataFrame:
     """
     Query consumption data from database for the given time range using SQLAlchemy.
     Returns None if no data found.
@@ -101,7 +101,7 @@ async def get_consumption_data_from_db(
 
             if not rows:
                 logger.info(f"No consumption data in DB for {start_datetime} to {end_datetime}")
-                return None
+                return pl.DataFrame()
 
             # Convert to dictionaries for polars
             data = [
@@ -120,7 +120,7 @@ async def get_consumption_data_from_db(
 
     except Exception as e:
         logger.error(f"Error querying consumption data from database: {e}")
-        return None
+        return pl.DataFrame()
 
 
 async def insert_tariff_data_to_db(

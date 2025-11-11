@@ -27,7 +27,8 @@ export interface DashboardData {
   costSummary: CostSummary;
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+// to expose a local app on network, you must use ip:port instead of localhost
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 export async function fetchDashboardData(
   startDateTime: string,
@@ -46,30 +47,33 @@ export async function fetchDashboardData(
   const tariffConsumptionData = response.data;
 
   // Group tariff data by date and prepare data for plotting
-  const grouped: Record<string, GroupedItem[]> = tariffConsumptionData.reduce((acc, item) => {
-    const dateTime = new Date(item.valid_from);
-    const dateKey = dateTime.toISOString().split('T')[0];
-    const time = dateTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const grouped: Record<string, GroupedItem[]> = tariffConsumptionData.reduce(
+    (acc, item) => {
+      const dateTime = new Date(item.valid_from);
+      const dateKey = dateTime.toISOString().split('T')[0];
+      const time = dateTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-    if (!acc[dateKey]) {
-      acc[dateKey] = [];
-    }
-    acc[dateKey].push({
-      time,
-      tariffRate: item.value_inc_vat,
-      consumption: item.consumption,
-      dateTime,
-    });
-    return acc;
-  }, {} as Record<string, GroupedItem[]>);
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+      acc[dateKey].push({
+        time,
+        tariffRate: item.value_inc_vat,
+        consumption: item.consumption,
+        dateTime,
+      });
+      return acc;
+    },
+    {} as Record<string, GroupedItem[]>
+  );
 
   // Create a trace for each date (line chart)
   const tariffColors = ['#E3E342', '#8F8F10', '#D2D690'];
   const tariffTraces: Data[] = Object.entries(grouped).map(([date, items], index) => {
     items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
     return {
-      x: items.map((item) => item.time),
-      y: items.map((item) => item.tariffRate),
+      x: items.map(item => item.time),
+      y: items.map(item => item.tariffRate),
       type: 'scattergl',
       mode: 'lines+markers',
       name: `${date} price`,
@@ -86,17 +90,19 @@ export async function fetchDashboardData(
   const consumptionColors = ['#75DB0D', '#67A626', '#6B8F46'];
   const consumptionTraces: Data[] = Object.entries(grouped).map(([date, items], index) => {
     items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
-    return items.some((item) => item.consumption) ? {
-      x: items.map((item) => item.time),
-      y: items.map((item) => item.consumption),
-      type: 'bar',
-      name: `${date} consumption`,
-      yaxis: 'y2',
-      marker: {
-        size: 6,
-        color: consumptionColors[index % tariffColors.length],
-      },
-    } : {};
+    return items.some(item => item.consumption)
+      ? {
+          x: items.map(item => item.time),
+          y: items.map(item => item.consumption),
+          type: 'bar',
+          name: `${date} consumption`,
+          yaxis: 'y2',
+          marker: {
+            size: 6,
+            color: consumptionColors[index % tariffColors.length],
+          },
+        }
+      : {};
   });
 
   const chartData = [...tariffTraces, ...consumptionTraces];
@@ -107,7 +113,7 @@ export async function fetchDashboardData(
   let totalPrice = 0;
   let timeIntervalCount = 0;
 
-  tariffConsumptionData.forEach((timeInterval) => {
+  tariffConsumptionData.forEach(timeInterval => {
     // Cost in pence = consumption (kWh) * price (p/kWh)
     const cost = timeInterval.consumption * timeInterval.value_inc_vat;
     totalCost += cost;

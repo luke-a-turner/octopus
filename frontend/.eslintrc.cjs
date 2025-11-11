@@ -10,6 +10,7 @@ module.exports = {
     'prettier',
   ],
   ignorePatterns: ['dist', '.eslintrc.cjs', 'node_modules'],
+  node: true,
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 'latest',
@@ -25,10 +26,7 @@ module.exports = {
     },
   },
   rules: {
-    'react-refresh/only-export-components': [
-      'warn',
-      { allowConstantExport: true },
-    ],
+    'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     '@typescript-eslint/no-unused-vars': [
       'warn',
       { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },

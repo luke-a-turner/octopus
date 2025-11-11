@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from api.async_request import GraphqlRequest
 from api.cache import async_cache, clear_cache, get_cache_info
 from api.constants import Field, Identifier, Product, Tariff, Url
-from api.processing import DataType, get_polars_dataframe
+from api.data_service import DataService, DataType
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +57,15 @@ async def get_tariff_data_today() -> list[TariffData]:
     start_datetime = datetime(today.year, today.month, today.day)
     end_datetime = datetime(today.year, today.month, today.day, 23, 59, 59)
 
-    df = await get_polars_dataframe(
+    df = await DataService(
         TARIFF_URL,
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
         DataType.TARIFF,
-    )
+    ).get_polars_dataframe()
+
     return cast(list[TariffData], df.to_dicts())
 
 
@@ -78,14 +79,15 @@ async def get_tariff_today_and_tomorrow() -> list[TariffData]:
     tomorrow = start_datetime + timedelta(days=1)
     end_datetime = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 23, 59, 59)
 
-    df = await get_polars_dataframe(
+    df = await DataService(
         TARIFF_URL,
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
         DataType.TARIFF,
-    )
+    ).get_polars_dataframe()
+
     return cast(list[TariffData], df.to_dicts())
 
 
@@ -95,14 +97,15 @@ async def get_smart_meter_historic_consumption(
     start_datetime: datetime, end_datetime: datetime
 ) -> list[ConsumptionData]:
     """Get historic smart meter energy usage (cached for 1 hour)"""
-    df = await get_polars_dataframe(
+    df = await DataService(
         CONSUMPTION_URL,
         start_datetime,
         end_datetime,
         Field.INTERVAL_START,
         Field.CONSUMPTION,
         DataType.CONSUMPTION,
-    )
+    ).get_polars_dataframe()
+
     return cast(list[ConsumptionData], df.to_dicts())
 
 
@@ -112,27 +115,28 @@ async def get_tariff_rates_with_historic_consumption(
     start_datetime: datetime, end_datetime: datetime
 ) -> list[TariffAndConsumptionData]:
     """Get agile tariff rates for time period with consumption data (cached for 1 hour)"""
-    df_tariff_rates = await get_polars_dataframe(
+    df_tariff_rates = await DataService(
         TARIFF_URL,
         start_datetime,
         end_datetime,
         Field.VALID_FROM,
         Field.VALUE,
         DataType.TARIFF,
-    )
+    ).get_polars_dataframe()
 
-    df_consumption = await get_polars_dataframe(
+    df_consumption = await DataService(
         CONSUMPTION_URL,
         start_datetime,
         end_datetime,
         Field.INTERVAL_START,
         Field.CONSUMPTION,
         DataType.CONSUMPTION,
-    )
+    ).get_polars_dataframe()
 
     df = df_tariff_rates.join(
         df_consumption, how="left", left_on=Field.VALID_FROM, right_on=Field.INTERVAL_START
     ).fill_null(0.0)
+
     return cast(list[TariffAndConsumptionData], df.to_dicts())
 
 

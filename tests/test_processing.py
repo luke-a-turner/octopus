@@ -1,14 +1,14 @@
 """
 Tests for data processing module
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import polars as pl
 import pytest
 
 from api.constants import Field
-from api.processing import DataType, get_polars_dataframe
+from api.processing import DataType, find_missing_intervals, get_polars_dataframe
 
 
 @pytest.mark.asyncio
@@ -349,3 +349,163 @@ async def test_get_polars_dataframe_selects_correct_columns():
         # Should only have the two specified columns
         assert set(df.columns) == {Field.VALID_FROM, Field.VALUE}
         assert "extra_field" not in df.columns
+
+
+def test_find_missing_intervals_no_missing():
+    """Test find_missing_intervals when all intervals are present"""
+    start_datetime = datetime(2024, 1, 1, 0, 0, 0)
+    end_datetime = datetime(2024, 1, 1, 2, 0, 0)  # 2 hours = 4 intervals
+
+    # Create complete data
+    data = [
+        {Field.VALID_FROM: start_datetime},
+        {Field.VALID_FROM: start_datetime + timedelta(minutes=30)},
+        {Field.VALID_FROM: start_datetime + timedelta(minutes=60)},
+        {Field.VALID_FROM: start_datetime + timedelta(minutes=90)},
+    ]
+    df = pl.DataFrame(data)
+
+    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+
+    assert len(missing_ranges) == 0
+
+
+def test_find_missing_intervals_all_missing():
+    """Test find_missing_intervals when all intervals are missing"""
+    start_datetime = datetime(2024, 1, 1, 0, 0, 0)
+    end_datetime = datetime(2024, 1, 1, 1, 0, 0)  # 1 hour = 2 intervals
+
+    df = pl.DataFrame()  # Empty dataframe
+
+    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+
+    assert len(missing_ranges) == 1
+    assert missing_ranges[0] == (start_datetime, end_datetime)
+
+
+def test_find_missing_intervals_consecutive_missing():
+    """Test find_missing_intervals with consecutive missing intervals"""
+    start_datetime = datetime(2024, 1, 1, 0, 0, 0)
+    end_datetime = datetime(2024, 1, 1, 2, 0, 0)  # 2 hours = 4 intervals
+
+    # Missing the middle two intervals
+    data = [
+        {Field.VALID_FROM: start_datetime},
+        {Field.VALID_FROM: start_datetime + timedelta(minutes=90)},
+    ]
+    df = pl.DataFrame(data)
+
+    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+
+    assert len(missing_ranges) == 1
+    assert missing_ranges[0] == (
+        start_datetime + timedelta(minutes=30),
+        start_datetime + timedelta(minutes=90),
+    )
+
+
+def test_find_missing_intervals_non_consecutive_missing():
+    """Test find_missing_intervals with non-consecutive missing intervals"""
+    start_datetime = datetime(2024, 1, 1, 0, 0, 0)
+    end_datetime = datetime(2024, 1, 1, 2, 0, 0)  # 2 hours = 4 intervals
+
+    # Missing first and third intervals
+    data = [
+        {Field.VALID_FROM: start_datetime + timedelta(minutes=30)},
+        {Field.VALID_FROM: start_datetime + timedelta(minutes=90)},
+    ]
+    df = pl.DataFrame(data)
+
+    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+
+    assert len(missing_ranges) == 2
+    assert missing_ranges[0] == (start_datetime, start_datetime + timedelta(minutes=30))
+    assert missing_ranges[1] == (
+        start_datetime + timedelta(minutes=60),
+        start_datetime + timedelta(minutes=90),
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_polars_dataframe_with_missing_intervals():
+    """Test that missing intervals are fetched from API and combined with DB data"""
+    start_datetime = datetime(2024, 1, 1, 0, 0, 0)
+    end_datetime = datetime(2024, 1, 1, 1, 0, 0)  # 1 hour = 2 intervals
+
+    # Mock database data with only first interval
+    db_data = pl.DataFrame(
+        [
+            {
+                Field.VALID_FROM: start_datetime,
+                Field.VALUE: 15.5,
+            }
+        ]
+    )
+
+    # Mock API data for missing interval
+    api_response = {
+        "results": [
+            {
+                "valid_from": "2024-01-01T00:30:00Z",
+                "value_inc_vat": 16.2,
+            },
+        ]
+    }
+
+    with patch("api.processing.get_tariff_data_from_db", new=AsyncMock(return_value=db_data)):
+        with patch("api.processing.insert_tariff_data_to_db", new=AsyncMock(return_value=True)):
+            with patch("api.processing.RestRequest") as mock_request_class:
+                mock_instance = MagicMock()
+                mock_instance.fetch_results = AsyncMock(return_value=[api_response])
+                mock_request_class.return_value = mock_instance
+
+                df = await get_polars_dataframe(
+                    "https://test.api/endpoint",
+                    start_datetime,
+                    end_datetime,
+                    Field.VALID_FROM,
+                    Field.VALUE,
+                    DataType.TARIFF,
+                )
+
+                # Should have both intervals from DB and API
+                assert len(df) == 2
+                assert Field.VALID_FROM in df.columns
+                assert Field.VALUE in df.columns
+
+                # Verify data is sorted
+                dates = df[Field.VALID_FROM].to_list()
+                assert dates == sorted(dates)
+
+
+@pytest.mark.asyncio
+async def test_get_polars_dataframe_no_missing_intervals():
+    """Test that no API call is made when all intervals are present in DB"""
+    start_datetime = datetime(2024, 1, 1, 0, 0, 0)
+    end_datetime = datetime(2024, 1, 1, 1, 0, 0)  # 1 hour = 2 intervals
+
+    # Mock complete database data
+    db_data = pl.DataFrame(
+        [
+            {Field.VALID_FROM: start_datetime, Field.VALUE: 15.5},
+            {Field.VALID_FROM: start_datetime + timedelta(minutes=30), Field.VALUE: 16.2},
+        ]
+    )
+
+    with patch("api.processing.get_tariff_data_from_db", new=AsyncMock(return_value=db_data)):
+        with patch("api.processing.RestRequest") as mock_request_class:
+            mock_instance = MagicMock()
+            mock_request_class.return_value = mock_instance
+
+            df = await get_polars_dataframe(
+                "https://test.api/endpoint",
+                start_datetime,
+                end_datetime,
+                Field.VALID_FROM,
+                Field.VALUE,
+                DataType.TARIFF,
+            )
+
+            # Should return database data without calling API
+            assert len(df) == 2
+            mock_instance.fetch_results.assert_not_called()
