@@ -217,15 +217,3 @@ export async function fetchAllDashboardData(): Promise<AllDashboardData> {
     chartCostSummary,
   };
 }
-
-// Legacy function kept for backward compatibility (now just calls fetchAllDashboardData)
-export async function fetchDashboardData(
-  startDateTime: string,
-  endDateTime: string
-): Promise<DashboardData> {
-  const allData = await fetchAllDashboardData(startDateTime, endDateTime);
-  return {
-    chartData: allData.chartData,
-    costSummary: allData.chartCostSummary,
-  };
-}
