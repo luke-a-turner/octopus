@@ -123,6 +123,7 @@ async def get_tariff_rates_with_historic_consumption(
         Field.VALUE,
         DataType.TARIFF,
     ).get_polars_dataframe()
+    print(df_tariff_rates.head(10))
 
     df_consumption = await DataService(
         CONSUMPTION_URL,
@@ -132,10 +133,12 @@ async def get_tariff_rates_with_historic_consumption(
         Field.CONSUMPTION,
         DataType.CONSUMPTION,
     ).get_polars_dataframe()
+    print(df_consumption.head(10))
 
     df = df_tariff_rates.join(
         df_consumption, how="left", left_on=Field.VALID_FROM, right_on=Field.INTERVAL_START
     ).fill_null(0.0)
+    print(df.head(30))
 
     return cast(list[TariffAndConsumptionData], df.to_dicts())
 

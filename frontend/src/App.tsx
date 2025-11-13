@@ -2,23 +2,32 @@ import { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { Data } from 'plotly.js';
 import CostSummaryCard from './components/CostSummaryCard';
-import { fetchDashboardData, CostSummary } from './services/api';
+import { fetchAllDashboardData, CostSummary } from './services/api';
 
 function App() {
   const [chartData, setChartData] = useState<Data[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [costSummary, setCostSummary] = useState<CostSummary>({
+  const [wtdCostSummary, setWtdCostSummary] = useState<CostSummary>({
     totalCost: 0,
-    totalConsumption: 0,
-    averagePrice: 0,
-    itemCount: 0,
+    averageCostPerKwh: 0,
+  });
+  const [mtdCostSummary, setMtdCostSummary] = useState<CostSummary>({
+    totalCost: 0,
+    averageCostPerKwh: 0,
+  });
+  const [todayCostSummary, setTodayCostSummary] = useState<CostSummary>({
+    totalCost: 0,
+    averageCostPerKwh: 0,
   });
 
   useEffect(() => {
-    fetchDashboardData('2025-11-09T00:00:00', '2025-11-11T23:59:59')
-      .then(data => {
-        setChartData(data.chartData);
-        setCostSummary(data.costSummary);
+    // Fetch all data in a single request
+    fetchAllDashboardData()
+      .then(allData => {
+        setChartData(allData.chartData);
+        setWtdCostSummary(allData.wtdCostSummary);
+        setMtdCostSummary(allData.mtdCostSummary);
+        setTodayCostSummary(allData.todayCostSummary);
         setLoading(false);
       })
       .catch(error => {
@@ -60,35 +69,102 @@ function App() {
       {/* Cost Summary Cards */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '20px',
-          marginBottom: '30px',
-          maxWidth: '800px',
+          maxWidth: '1400px',
           margin: '0 auto 30px auto',
         }}
       >
-        <CostSummaryCard
-          title="Total Cost Today"
-          value={`£${costSummary.totalCost.toFixed(2)}`}
-          color="#E3E342"
-        />
-        <CostSummaryCard
-          title="Total Consumption"
-          value={costSummary.totalConsumption.toFixed(2)}
-          color="#24941B"
-          unit=" kWh"
-        />
-        <CostSummaryCard
-          title="Avg Cost per kWh"
-          value={
-            costSummary.totalConsumption > 0
-              ? (costSummary.totalCost / costSummary.totalConsumption).toFixed(2)
-              : '0.00'
-          }
-          color="#FF6B6B"
-          unit=" p"
-        />
+        {/* Today Section */}
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{
+            fontSize: '13px',
+            color: '#808080',
+            marginBottom: '10px',
+            fontWeight: '500',
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase'
+          }}>
+            Today
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '12px',
+          }}>
+            <CostSummaryCard
+              title="Total Cost"
+              value={`£${todayCostSummary.totalCost.toFixed(2)}`}
+              color="#4ECDC4"
+            />
+            <CostSummaryCard
+              title="Avg Cost/kWh"
+              value={todayCostSummary.averageCostPerKwh.toFixed(2)}
+              color="#4ECDC4"
+              unit=" p"
+            />
+          </div>
+        </div>
+
+        {/* Week to Date Section */}
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{
+            fontSize: '13px',
+            color: '#808080',
+            marginBottom: '10px',
+            fontWeight: '500',
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase'
+          }}>
+            Week to Date
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '12px',
+          }}>
+            <CostSummaryCard
+              title="Total Cost"
+              value={`£${wtdCostSummary.totalCost.toFixed(2)}`}
+              color="#95E1D3"
+            />
+            <CostSummaryCard
+              title="Avg Cost/kWh"
+              value={wtdCostSummary.averageCostPerKwh.toFixed(2)}
+              color="#95E1D3"
+              unit=" p"
+            />
+          </div>
+        </div>
+
+        {/* Month to Date Section */}
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{
+            fontSize: '13px',
+            color: '#808080',
+            marginBottom: '10px',
+            fontWeight: '500',
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase'
+          }}>
+            Month to Date
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '12px',
+          }}>
+            <CostSummaryCard
+              title="Total Cost"
+              value={`£${mtdCostSummary.totalCost.toFixed(2)}`}
+              color="#F38181"
+            />
+            <CostSummaryCard
+              title="Avg Cost/kWh"
+              value={mtdCostSummary.averageCostPerKwh.toFixed(2)}
+              color="#F38181"
+              unit=" p"
+            />
+          </div>
+        </div>
       </div>
 
       <Plot
@@ -102,6 +178,8 @@ function App() {
             title: { text: 'Time', font: { color: '#e0e0e0' } },
             tickfont: { color: '#e0e0e0' },
             gridcolor: '#404040',
+            type: 'date',
+            tickformat: '%H:%M',
           },
           yaxis: {
             title: { text: 'Price (p/kWh)', font: { color: '#e0e0e0' } },

@@ -77,6 +77,11 @@ To start the API server in development mode:
 poetry run uvicorn api.api:app --reload
 ```
 
+To start the API and provide access across the local network, use hostname and port
+```bash
+poetry run uvicorn api.api:app --reload --host 0.0.0.0 --port 8000
+```
+
 The `--reload` flag enables auto-reload on code changes.
 
 ### Production Server

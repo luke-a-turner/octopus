@@ -17,9 +17,8 @@ interface GroupedItem {
 
 export interface CostSummary {
   totalCost: number;
-  totalConsumption: number;
-  averagePrice: number;
-  itemCount: number;
+  averageCostPerKwh: number;
+  period?: string;
 }
 
 export interface DashboardData {
@@ -30,24 +29,68 @@ export interface DashboardData {
 // to expose a local app on network, you must use ip:port instead of localhost
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
-export async function fetchDashboardData(
-  startDateTime: string,
-  endDateTime: string
-): Promise<DashboardData> {
-  const response = await axios.get<TariffAndConsumptionData[]>(
-    `${API_BASE_URL}/tariff-rates-with-historic-consumption`,
-    {
-      params: {
-        start_datetime: startDateTime,
-        end_datetime: endDateTime,
-      },
-    }
+// Helper function to get start of week (Monday)
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+  d.setDate(diff);
+  d.setHours(0, 0, 0); // Set to beginning of day
+  return d;
+}
+
+// Helper function to get start of month
+function getMonthStart(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), 1);
+  d.setHours(0, 0, 0); // Set to beginning of day
+  return d;
+}
+
+// Helper function to calculate cost summary from data
+function calculateCostSummary(
+  tariffConsumptionData: TariffAndConsumptionData[],
+  period?: string
+): CostSummary {
+  let totalCost = 0;
+  let totalConsumption = 0;
+
+  tariffConsumptionData.forEach(timeInterval => {
+    // Cost in pence = consumption (kWh) * price (p/kWh)
+    const cost = timeInterval.consumption * timeInterval.value_inc_vat;
+    totalCost += cost;
+    totalConsumption += timeInterval.consumption;
+  });
+
+  const averageCostPerKwh = totalConsumption > 0 ? totalCost / totalConsumption : 0;
+
+  return {
+    totalCost: totalCost / 100, // Convert pence to pounds
+    averageCostPerKwh,
+    period,
+  };
+}
+
+// Helper function to filter data by date range
+function filterDataByDateRange(
+  data: TariffAndConsumptionData[],
+  startDate: Date,
+  endDate: Date
+): TariffAndConsumptionData[] {
+  return data.filter(item => {
+    const itemDate = new Date(item.valid_from);
+    return itemDate >= startDate && itemDate <= endDate;
+  });
+}
+
+// Helper function to create chart data from tariff/consumption data
+function createChartData(tariffConsumptionData: TariffAndConsumptionData[]): Data[] {
+  // Sort all data by datetime first to ensure chronological order
+  const sortedData = [...tariffConsumptionData].sort(
+    (a, b) => new Date(a.valid_from).getTime() - new Date(b.valid_from).getTime()
   );
 
-  const tariffConsumptionData = response.data;
-
   // Group tariff data by date and prepare data for plotting
-  const grouped: Record<string, GroupedItem[]> = tariffConsumptionData.reduce(
+  const grouped: Record<string, GroupedItem[]> = sortedData.reduce(
     (acc, item) => {
       const dateTime = new Date(item.valid_from);
       const dateKey = dateTime.toISOString().split('T')[0];
@@ -72,7 +115,7 @@ export async function fetchDashboardData(
   const tariffTraces: Data[] = Object.entries(grouped).map(([date, items], index) => {
     items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
     return {
-      x: items.map(item => item.time),
+      x: items.map(item => item.dateTime),
       y: items.map(item => item.tariffRate),
       type: 'scattergl',
       mode: 'lines+markers',
@@ -92,7 +135,7 @@ export async function fetchDashboardData(
     items.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
     return items.some(item => item.consumption)
       ? {
-          x: items.map(item => item.time),
+          x: items.map(item => item.dateTime),
           y: items.map(item => item.consumption),
           type: 'bar',
           name: `${date} consumption`,
@@ -105,34 +148,84 @@ export async function fetchDashboardData(
       : {};
   });
 
-  const chartData = [...tariffTraces, ...consumptionTraces];
+  return [...tariffTraces, ...consumptionTraces];
+}
 
-  // Calculate cost summary
-  let totalCost = 0;
-  let totalConsumption = 0;
-  let totalPrice = 0;
-  let timeIntervalCount = 0;
+export interface AllDashboardData {
+  mtdData: TariffAndConsumptionData[];
+  mtdCostSummary: CostSummary;
+  wtdCostSummary: CostSummary;
+  todayCostSummary: CostSummary;
+  chartData: Data[];
+  chartCostSummary: CostSummary;
+}
 
-  tariffConsumptionData.forEach(timeInterval => {
-    // Cost in pence = consumption (kWh) * price (p/kWh)
-    const cost = timeInterval.consumption * timeInterval.value_inc_vat;
-    totalCost += cost;
-    totalConsumption += timeInterval.consumption;
-    totalPrice += timeInterval.value_inc_vat;
-    timeIntervalCount++;
-  });
+const formatDate = (datetime: Date) => {
+  return datetime.toISOString().substring(0, 19)
+}
 
-  const averagePrice = timeIntervalCount > 0 ? totalPrice / timeIntervalCount : 0;
+// Fetch all dashboard data in a single request (MTD) and derive WTD and chart data
+export async function fetchAllDashboardData(): Promise<AllDashboardData> {
+  const chartStartDate = new Date();
+  chartStartDate.setHours(0, 0, 0);
 
-  const costSummary: CostSummary = {
-    totalCost: totalCost / 100, // Convert pence to pounds
-    totalConsumption,
-    averagePrice,
-    itemCount: timeIntervalCount,
-  };
+  const chartEndDate = new Date();
+  chartEndDate.setDate(chartEndDate.getDate() + 1);
+  chartEndDate.setHours(23, 59, 59);
+
+  const now = new Date();
+  const monthStart = getMonthStart(now);
+  const weekStart = getWeekStart(now);
+
+  // Fetch MTD data once
+  const response = await axios.get<TariffAndConsumptionData[]>(
+    `${API_BASE_URL}/tariff-rates-with-historic-consumption`,
+    {
+      params: {
+        start_datetime: formatDate(monthStart),
+        end_datetime: formatDate(chartEndDate),
+      },
+    }
+  );
+
+  const mtdData = response.data;
+
+  // Calculate MTD cost summary
+  const mtdCostSummary = calculateCostSummary(mtdData, 'MTD');
+
+  // Filter for WTD and calculate WTD cost summary
+  const wtdData = filterDataByDateRange(mtdData, weekStart, now);
+  const wtdCostSummary = calculateCostSummary(wtdData, 'WTD');
+
+  // Filter for Today and calculate Today cost summary
+  const todayEndDate = new Date();
+  todayEndDate.setHours(23, 59, 59, 999);
+  const todayData = filterDataByDateRange(mtdData, chartStartDate, todayEndDate);
+  const todayCostSummary = calculateCostSummary(todayData, 'Today');
+
+  // Filter for chart date range and create chart data
+  const chartDataFiltered = filterDataByDateRange(mtdData, chartStartDate, chartEndDate);
+  const chartData = createChartData(chartDataFiltered);
+  const chartCostSummary = calculateCostSummary(chartDataFiltered);
 
   return {
+    mtdData,
+    mtdCostSummary,
+    wtdCostSummary,
+    todayCostSummary,
     chartData,
-    costSummary,
+    chartCostSummary,
+  };
+}
+
+// Legacy function kept for backward compatibility (now just calls fetchAllDashboardData)
+export async function fetchDashboardData(
+  startDateTime: string,
+  endDateTime: string
+): Promise<DashboardData> {
+  const allData = await fetchAllDashboardData(startDateTime, endDateTime);
+  return {
+    chartData: allData.chartData,
+    costSummary: allData.chartCostSummary,
   };
 }

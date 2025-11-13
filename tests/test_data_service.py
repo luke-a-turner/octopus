@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 from api.constants import Field
-from api.processing import DataType, find_missing_intervals, get_polars_dataframe
+from api.data_service import DataService, DataType
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_get_polars_dataframe_basic():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -35,7 +35,7 @@ async def test_get_polars_dataframe_basic():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -43,6 +43,7 @@ async def test_get_polars_dataframe_basic():
             Field.VALUE,
             DataType.TARIFF,
         )
+        df = await service.get_polars_dataframe()
 
         assert isinstance(df, pl.DataFrame)
         assert len(df) == 2
@@ -70,7 +71,7 @@ async def test_get_polars_dataframe_datetime_filtering():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -78,7 +79,7 @@ async def test_get_polars_dataframe_datetime_filtering():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -86,6 +87,7 @@ async def test_get_polars_dataframe_datetime_filtering():
             Field.VALUE,
             DataType.TARIFF,
         )
+        df = await service.get_polars_dataframe()
         print(df)
 
         # Should filter out the 2024-01-02 record
@@ -116,7 +118,7 @@ async def test_get_polars_dataframe_calculates_pages():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -125,7 +127,7 @@ async def test_get_polars_dataframe_calculates_pages():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -133,6 +135,7 @@ async def test_get_polars_dataframe_calculates_pages():
             Field.VALUE,
             DataType.TARIFF,
         )
+        await service.get_polars_dataframe()
 
         # Should call fetch_results with list of URLs
         mock_instance.fetch_results.assert_called_once()
@@ -162,7 +165,7 @@ async def test_get_polars_dataframe_multiple_batches():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_batch1, mock_batch2])
         mock_request_class.return_value = mock_instance
@@ -170,7 +173,7 @@ async def test_get_polars_dataframe_multiple_batches():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -178,6 +181,7 @@ async def test_get_polars_dataframe_multiple_batches():
             Field.VALUE,
             DataType.TARIFF,
         )
+        df = await service.get_polars_dataframe()
 
         # Should concatenate both batches
         assert len(df) == 2
@@ -199,7 +203,7 @@ async def test_get_polars_dataframe_consumption_data():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -207,7 +211,7 @@ async def test_get_polars_dataframe_consumption_data():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -215,6 +219,7 @@ async def test_get_polars_dataframe_consumption_data():
             Field.CONSUMPTION,
             DataType.CONSUMPTION,
         )
+        df = await service.get_polars_dataframe()
 
         assert isinstance(df, pl.DataFrame)
         assert len(df) == 2
@@ -227,7 +232,7 @@ async def test_get_polars_dataframe_empty_results():
     """Test handling of empty results"""
     mock_response = {"results": []}
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -235,7 +240,7 @@ async def test_get_polars_dataframe_empty_results():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -243,6 +248,7 @@ async def test_get_polars_dataframe_empty_results():
             Field.VALUE,
             DataType.TARIFF,
         )
+        df = await service.get_polars_dataframe()
 
         assert isinstance(df, pl.DataFrame)
         assert len(df) == 0
@@ -260,7 +266,7 @@ async def test_get_polars_dataframe_datetime_conversion():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -268,7 +274,7 @@ async def test_get_polars_dataframe_datetime_conversion():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -276,6 +282,7 @@ async def test_get_polars_dataframe_datetime_conversion():
             Field.VALUE,
             DataType.TARIFF,
         )
+        df = await service.get_polars_dataframe()
 
         # Check that the datetime column is of datetime type
         assert df[Field.VALID_FROM].dtype == pl.Datetime
@@ -293,7 +300,7 @@ async def test_get_polars_dataframe_long_date_range():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -302,7 +309,7 @@ async def test_get_polars_dataframe_long_date_range():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 3, 15, 23, 59, 59)
 
-        await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -310,6 +317,7 @@ async def test_get_polars_dataframe_long_date_range():
             Field.VALUE,
             DataType.TARIFF,
         )
+        await service.get_polars_dataframe()
 
         # Should request multiple pages for 7 days of data
         urls = mock_instance.fetch_results.call_args[0][0]
@@ -329,7 +337,7 @@ async def test_get_polars_dataframe_selects_correct_columns():
         ]
     }
 
-    with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.RestRequest") as mock_request_class:
         mock_instance = MagicMock()
         mock_instance.fetch_results = AsyncMock(return_value=[mock_response])
         mock_request_class.return_value = mock_instance
@@ -337,7 +345,7 @@ async def test_get_polars_dataframe_selects_correct_columns():
         start_datetime = datetime(2024, 1, 1, 0, 0, 0)
         end_datetime = datetime(2024, 1, 1, 23, 59, 59)
 
-        df = await get_polars_dataframe(
+        service = DataService(
             "https://test.api/endpoint",
             start_datetime,
             end_datetime,
@@ -345,6 +353,7 @@ async def test_get_polars_dataframe_selects_correct_columns():
             Field.VALUE,
             DataType.TARIFF,
         )
+        df = await service.get_polars_dataframe()
 
         # Should only have the two specified columns
         assert set(df.columns) == {Field.VALID_FROM, Field.VALUE}
@@ -365,7 +374,15 @@ def test_find_missing_intervals_no_missing():
     ]
     df = pl.DataFrame(data)
 
-    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+    service = DataService(
+        url="https://test.api/endpoint",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        date_field=Field.VALID_FROM,
+        value_field=Field.VALUE,
+        data_type=DataType.TARIFF,
+    )
+    missing_ranges = service.find_missing_intervals(df)
 
     assert len(missing_ranges) == 0
 
@@ -377,7 +394,15 @@ def test_find_missing_intervals_all_missing():
 
     df = pl.DataFrame()  # Empty dataframe
 
-    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+    service = DataService(
+        url="https://test.api/endpoint",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        date_field=Field.VALID_FROM,
+        value_field=Field.VALUE,
+        data_type=DataType.TARIFF,
+    )
+    missing_ranges = service.find_missing_intervals(df)
 
     assert len(missing_ranges) == 1
     assert missing_ranges[0] == (start_datetime, end_datetime)
@@ -395,7 +420,15 @@ def test_find_missing_intervals_consecutive_missing():
     ]
     df = pl.DataFrame(data)
 
-    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+    service = DataService(
+        url="https://test.api/endpoint",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        date_field=Field.VALID_FROM,
+        value_field=Field.VALUE,
+        data_type=DataType.TARIFF,
+    )
+    missing_ranges = service.find_missing_intervals(df)
 
     assert len(missing_ranges) == 1
     assert missing_ranges[0] == (
@@ -416,7 +449,15 @@ def test_find_missing_intervals_non_consecutive_missing():
     ]
     df = pl.DataFrame(data)
 
-    missing_ranges = find_missing_intervals(start_datetime, end_datetime, df, Field.VALID_FROM)
+    service = DataService(
+        url="https://test.api/endpoint",
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        date_field=Field.VALID_FROM,
+        value_field=Field.VALUE,
+        data_type=DataType.TARIFF,
+    )
+    missing_ranges = service.find_missing_intervals(df)
 
     assert len(missing_ranges) == 2
     assert missing_ranges[0] == (start_datetime, start_datetime + timedelta(minutes=30))
@@ -452,14 +493,14 @@ async def test_get_polars_dataframe_with_missing_intervals():
         ]
     }
 
-    with patch("api.processing.get_tariff_data_from_db", new=AsyncMock(return_value=db_data)):
-        with patch("api.processing.insert_tariff_data_to_db", new=AsyncMock(return_value=True)):
-            with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.get_tariff_data_from_db", new=AsyncMock(return_value=db_data)):
+        with patch("api.data_service.insert_tariff_data_to_db", new=AsyncMock(return_value=True)):
+            with patch("api.data_service.RestRequest") as mock_request_class:
                 mock_instance = MagicMock()
                 mock_instance.fetch_results = AsyncMock(return_value=[api_response])
                 mock_request_class.return_value = mock_instance
 
-                df = await get_polars_dataframe(
+                service = DataService(
                     "https://test.api/endpoint",
                     start_datetime,
                     end_datetime,
@@ -467,6 +508,7 @@ async def test_get_polars_dataframe_with_missing_intervals():
                     Field.VALUE,
                     DataType.TARIFF,
                 )
+                df = await service.get_polars_dataframe()
 
                 # Should have both intervals from DB and API
                 assert len(df) == 2
@@ -492,12 +534,12 @@ async def test_get_polars_dataframe_no_missing_intervals():
         ]
     )
 
-    with patch("api.processing.get_tariff_data_from_db", new=AsyncMock(return_value=db_data)):
-        with patch("api.processing.RestRequest") as mock_request_class:
+    with patch("api.data_service.get_tariff_data_from_db", new=AsyncMock(return_value=db_data)):
+        with patch("api.data_service.RestRequest") as mock_request_class:
             mock_instance = MagicMock()
             mock_request_class.return_value = mock_instance
 
-            df = await get_polars_dataframe(
+            service = DataService(
                 "https://test.api/endpoint",
                 start_datetime,
                 end_datetime,
@@ -505,6 +547,7 @@ async def test_get_polars_dataframe_no_missing_intervals():
                 Field.VALUE,
                 DataType.TARIFF,
             )
+            df = await service.get_polars_dataframe()
 
             # Should return database data without calling API
             assert len(df) == 2

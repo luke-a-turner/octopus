@@ -52,6 +52,11 @@ Start the development server with hot-reload:
 npm run dev
 ```
 
+Start the server and allow access across the local network:
+```bash
+npm run dev -- --host
+```
+
 The application will be available at `http://localhost:5173` (default Vite port).
 
 ### Production Build

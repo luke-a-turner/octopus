@@ -13,21 +13,41 @@ vi.mock('react-plotly.js', () => ({
 }));
 
 describe('App Component', () => {
-  const mockDashboardData = {
+  const mockAllDashboardData = {
+    mtdData: [
+      {
+        valid_from: '2024-01-15T00:00:00Z',
+        value_inc_vat: 20.0,
+        consumption: 2.0,
+      },
+    ],
+    mtdCostSummary: {
+      totalCost: 5.25,
+      averageCostPerKwh: 25.5,
+      period: 'MTD',
+    },
+    wtdCostSummary: {
+      totalCost: 2.50,
+      averageCostPerKwh: 22.0,
+      period: 'WTD',
+    },
+    todayCostSummary: {
+      totalCost: 1.25,
+      averageCostPerKwh: 20.0,
+      period: 'Today',
+    },
     chartData: [
       {
         x: ['00:00', '00:30'],
         y: [15.5, 16.2],
         type: 'scattergl',
         mode: 'lines+markers',
-        name: '2024-01-01 price',
+        name: '2024-01-15 price',
       },
     ],
-    costSummary: {
+    chartCostSummary: {
       totalCost: 1.25,
-      totalConsumption: 10.5,
-      averagePrice: 15.8,
-      itemCount: 48,
+      averageCostPerKwh: 15.8,
     },
   };
 
@@ -36,8 +56,8 @@ describe('App Component', () => {
   });
 
   it('renders loading state initially', () => {
-    // Mock fetchDashboardData to delay response
-    mockedApiService.fetchDashboardData.mockImplementation(() => new Promise(() => {}));
+    // Mock fetchAllDashboardData to delay response
+    mockedApiService.fetchAllDashboardData.mockImplementation(() => new Promise(() => {}));
 
     render(<App />);
 
@@ -46,7 +66,7 @@ describe('App Component', () => {
 
   it('renders dashboard title after loading', async () => {
     // Mock successful API response
-    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
@@ -57,7 +77,7 @@ describe('App Component', () => {
 
   it('renders plot component after data loads', async () => {
     // Mock successful API response
-    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
@@ -66,34 +86,61 @@ describe('App Component', () => {
     });
   });
 
-  it('renders cost summary cards after data loads', async () => {
+  it('renders Today, WTD and MTD cost summary cards after data loads', async () => {
     // Mock successful API response
-    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Total Cost Today')).toBeInTheDocument();
-      expect(screen.getByText('Total Consumption')).toBeInTheDocument();
-      expect(screen.getByText('Avg Cost per kWh')).toBeInTheDocument();
+      expect(screen.getByText('Total Cost (Today)')).toBeInTheDocument();
+      expect(screen.getByText('Avg Cost per kWh (Today)')).toBeInTheDocument();
+      expect(screen.getByText('Total Cost (WTD)')).toBeInTheDocument();
+      expect(screen.getByText('Avg Cost per kWh (WTD)')).toBeInTheDocument();
+      expect(screen.getByText('Total Cost (MTD)')).toBeInTheDocument();
+      expect(screen.getByText('Avg Cost per kWh (MTD)')).toBeInTheDocument();
     });
   });
 
-  it('displays cost summary values correctly', async () => {
+  it('displays Today cost summary values correctly', async () => {
     // Mock successful API response
-    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('£1.25')).toBeInTheDocument();
-      expect(screen.getByText(/10\.50/)).toBeInTheDocument();
+      expect(screen.getByText('£1.25')).toBeInTheDocument(); // Today total cost
+      expect(screen.getByText('20.00 p')).toBeInTheDocument(); // Today avg cost per kWh
+    });
+  });
+
+  it('displays WTD cost summary values correctly', async () => {
+    // Mock successful API response
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('£2.50')).toBeInTheDocument(); // WTD total cost
+      expect(screen.getByText('22.00 p')).toBeInTheDocument(); // WTD avg cost per kWh
+    });
+  });
+
+  it('displays MTD cost summary values correctly', async () => {
+    // Mock successful API response
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('£5.25')).toBeInTheDocument(); // MTD total cost
+      expect(screen.getByText('25.50 p')).toBeInTheDocument(); // MTD avg cost per kWh
     });
   });
 
   it('handles API errors gracefully', async () => {
-    // Mock fetchDashboardData to reject
-    mockedApiService.fetchDashboardData.mockRejectedValue(new Error('API Error'));
+    // Mock fetchAllDashboardData to reject
+    mockedApiService.fetchAllDashboardData.mockRejectedValue(new Error('API Error'));
 
     // Mock console.error to avoid noise in test output
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -108,27 +155,24 @@ describe('App Component', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('calls fetchDashboardData with correct date range', async () => {
-    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+  it('calls fetchAllDashboardData once on mount', async () => {
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(mockedApiService.fetchDashboardData).toHaveBeenCalledWith(
-        '2025-11-03T00:00:00',
-        '2025-11-05T23:59:59'
-      );
+      expect(mockedApiService.fetchAllDashboardData).toHaveBeenCalledTimes(1);
     });
   });
 
-  it('calculates average cost per kWh correctly', async () => {
-    mockedApiService.fetchDashboardData.mockResolvedValue(mockDashboardData);
+  it('does not display Total Consumption card', async () => {
+    // Mock successful API response
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      // totalCost (£1.25) / totalConsumption (10.5 kWh) = 0.119 p/kWh = 0.12 p/kWh
-      expect(screen.getByText(/0\.12/)).toBeInTheDocument();
+      expect(screen.queryByText('Total Consumption')).not.toBeInTheDocument();
     });
   });
 });

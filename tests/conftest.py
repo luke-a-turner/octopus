@@ -46,16 +46,22 @@ def sample_usage_data():
 @pytest.fixture(autouse=True)
 def mock_database_functions():
     """Mock async database functions for all tests to avoid requiring a real database"""
-    with patch("api.processing.get_tariff_data_from_db", new_callable=AsyncMock, return_value=None):
+    import polars as pl
+
+    with patch("api.database.get_tariff_data_from_db", new_callable=AsyncMock, return_value=pl.DataFrame()):
         with patch(
-            "api.processing.get_consumption_data_from_db", new_callable=AsyncMock, return_value=None
+            "api.database.get_consumption_data_from_db", new_callable=AsyncMock, return_value=pl.DataFrame()
         ):
             with patch(
-                "api.processing.insert_tariff_data_to_db", new_callable=AsyncMock, return_value=True
+                "api.database.insert_tariff_data_to_db", new_callable=AsyncMock, return_value=True
             ):
                 with patch(
-                    "api.processing.insert_consumption_data_to_db",
+                    "api.database.insert_consumption_data_to_db",
                     new_callable=AsyncMock,
                     return_value=True,
                 ):
-                    yield
+                    with patch("api.data_service.get_tariff_data_from_db", new_callable=AsyncMock, return_value=pl.DataFrame()):
+                        with patch("api.data_service.get_consumption_data_from_db", new_callable=AsyncMock, return_value=pl.DataFrame()):
+                            with patch("api.data_service.insert_tariff_data_to_db", new_callable=AsyncMock, return_value=True):
+                                with patch("api.data_service.insert_consumption_data_to_db", new_callable=AsyncMock, return_value=True):
+                                    yield

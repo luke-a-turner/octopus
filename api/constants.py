@@ -24,9 +24,9 @@ class Product(StrEnum):
 
 
 class Identifier(StrEnum):
-    MPAN = os.getenv("MPAN")
-    SERIAL_NUMBER = os.getenv("SERIAL_NUMBER")
-    API_KEY = os.getenv("API_KEY")
+    MPAN = os.getenv("MPAN", "")
+    SERIAL_NUMBER = os.getenv("SERIAL_NUMBER", "")
+    API_KEY = os.getenv("OCTOPUS_API_KEY", "")
 
 
 class Field(StrEnum):

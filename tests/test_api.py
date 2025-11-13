@@ -79,7 +79,7 @@ def test_cors_headers(client):
 @pytest.mark.asyncio
 async def test_tariff_data_today_endpoint(client, mock_polars_df):
     """Test tariff data today endpoint"""
-    with patch("api.api.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
+    with patch("api.data_service.DataService.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
         mock_get_data.return_value = mock_polars_df
 
         response = client.get("/tariff-data-today")
@@ -95,7 +95,7 @@ async def test_tariff_data_today_endpoint(client, mock_polars_df):
 @pytest.mark.asyncio
 async def test_tariff_data_today_and_tomorrow_endpoint(client, mock_polars_df):
     """Test tariff data today and tomorrow endpoint"""
-    with patch("api.api.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
+    with patch("api.data_service.DataService.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
         mock_get_data.return_value = mock_polars_df
 
         response = client.get("/tariff-data-today-and-tomorrow")
@@ -109,7 +109,7 @@ async def test_tariff_data_today_and_tomorrow_endpoint(client, mock_polars_df):
 @pytest.mark.asyncio
 async def test_smart_meter_historic_consumption_endpoint(client, mock_consumption_df):
     """Test smart meter historic consumption endpoint"""
-    with patch("api.api.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
+    with patch("api.data_service.DataService.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
         mock_get_data.return_value = mock_consumption_df
 
         response = client.get(
@@ -142,7 +142,7 @@ async def test_tariff_rates_with_historic_consumption_endpoint(
         }
     )
 
-    with patch("api.api.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
+    with patch("api.data_service.DataService.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
         # First call returns tariff data, second call returns consumption data
         mock_get_data.side_effect = [mock_polars_df, mock_consumption_df]
 
@@ -173,7 +173,7 @@ async def test_tariff_data_caching(client):
     client.post("/cache/clear")
 
     # Mock the get_polars_dataframe function to avoid actual API calls
-    with patch("api.api.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
+    with patch("api.data_service.DataService.get_polars_dataframe", new_callable=AsyncMock) as mock_get_data:
         mock_df = pl.DataFrame(
             {
                 "valid_from": ["2024-01-01T00:00:00"],

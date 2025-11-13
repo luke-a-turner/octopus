@@ -103,19 +103,22 @@ class DataService:
         return missing_ranges
 
     async def fetch_from_api(
-        self, start_datetime: datetime, end_datetime: datetime
+        self, start_datetime: datetime | None = None, end_datetime: datetime | None = None
     ) -> pl.DataFrame:
         """Fetch data from Octopus Energy API"""
         # number of half hour report intervals between start and end datetime
+        start_datetime = self.start_datetime if start_datetime is None else start_datetime
+        end_datetime = self.end_datetime if end_datetime is None else end_datetime
+
         number_data_points = ceil(
-            ((self.end_datetime - self.start_datetime).total_seconds() / SECONDS_IN_HOUR) * 2
+            ((end_datetime - start_datetime).total_seconds() / SECONDS_IN_HOUR) * 2
         )
 
         page_size = PAGE_SIZE if number_data_points > PAGE_SIZE else number_data_points
         pages_required = ceil(number_data_points / PAGE_SIZE)
 
         urls = [
-            f"{self.url}?period_from={self.start_datetime.strftime('%Y-%m-%dT%H:%MZ')}&period_to={self.end_datetime.strftime('%Y-%m-%dT%H:%MZ')}&page_size={page_size}&page={i}"
+            f"{self.url}?period_from={start_datetime.strftime('%Y-%m-%dT%H:%MZ')}&period_to={end_datetime.strftime('%Y-%m-%dT%H:%MZ')}&page_size={page_size}&page={i}"
             for i in range(1, (pages_required + 1))
         ]
         logger.info(f"{self.data_type}: Fetching data from API: {len(urls)} requests")
@@ -130,7 +133,7 @@ class DataService:
 
         logger.info(f"{self.data_type}: Created {len(lazy_frames)} dataframes from batches")
         logger.info(
-            f"{self.data_type}: Filtering data for range {self.start_datetime} to {self.end_datetime} on {self.date_field}"
+            f"{self.data_type}: Filtering data for range {start_datetime} to {end_datetime} on {self.date_field}"
         )
 
         df = (
@@ -139,8 +142,8 @@ class DataService:
                 pl.col(self.date_field).str.to_datetime("%Y-%m-%dT%H:%M:%SZ").alias(self.date_field)
             )
             .filter(
-                (pl.col(self.date_field) >= self.start_datetime)
-                & (pl.col(self.date_field) < self.end_datetime)
+                (pl.col(self.date_field) >= start_datetime)
+                & (pl.col(self.date_field) < end_datetime)
             )
             .select([self.date_field, self.value_field])
             .collect()
@@ -202,7 +205,7 @@ class DataService:
             return DatabaseDataAvailability(True, data)
 
         logger.warning(f"{self.data_type} No data returned from API for missing ranges")
-        return DatabaseDataAvailability(True, data)
+        return DatabaseDataAvailability(True, db_data)
 
     async def get_polars_dataframe(self) -> pl.DataFrame:
         """
