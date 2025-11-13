@@ -52,13 +52,13 @@ describe('CostSummaryCard Component', () => {
     );
 
     const cardDiv = container.querySelector('div');
-    expect(cardDiv).toHaveStyle({ border: '2px solid #FF6B6B' });
+    expect(cardDiv).toHaveStyle({ border: '1.5px solid #FF6B6B' });
 
     const valueElement = screen.getByText('100');
     expect(valueElement).toHaveStyle({ color: '#FF6B6B' });
   });
 
-  it('renders with centered text alignment', () => {
+  it('renders with table structure', () => {
     const { container } = render(
       <CostSummaryCard
         title="Test"
@@ -67,8 +67,9 @@ describe('CostSummaryCard Component', () => {
       />
     );
 
-    const cardDiv = container.querySelector('div');
-    expect(cardDiv).toHaveStyle({ textAlign: 'center' });
+    const table = container.querySelector('table');
+    expect(table).toBeInTheDocument();
+    expect(table).toHaveStyle({ borderCollapse: 'collapse' });
   });
 
   it('handles numeric values', () => {
@@ -95,8 +96,8 @@ describe('CostSummaryCard Component', () => {
     const cardDiv = container.querySelector('div');
     expect(cardDiv).toHaveStyle({
       backgroundColor: '#262626',
-      borderRadius: '8px',
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+      borderRadius: '6px',
+      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
     });
   });
 
@@ -111,8 +112,8 @@ describe('CostSummaryCard Component', () => {
 
     const titleElement = screen.getByText('Average Price');
     expect(titleElement).toHaveStyle({
-      fontSize: '14px',
-      color: '#a0a0a0',
+      fontSize: '11px',
+      color: 'rgb(144, 144, 144)',
     });
   });
 
@@ -127,8 +128,8 @@ describe('CostSummaryCard Component', () => {
 
     const valueElement = screen.getByText('100');
     expect(valueElement).toHaveStyle({
-      fontSize: '32px',
-      fontWeight: 'bold',
+      fontSize: '22px',
+      fontWeight: '600',
     });
   });
 });

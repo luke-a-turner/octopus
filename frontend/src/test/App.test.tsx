@@ -49,6 +49,16 @@ describe('App Component', () => {
       totalCost: 1.25,
       averageCostPerKwh: 15.8,
     },
+    currentTariff: {
+      rate: 18.5,
+      validFrom: '2024-01-15T12:00:00Z',
+      validUntil: '2024-01-15T12:30:00Z',
+    },
+    nextTariff: {
+      rate: 24.5,
+      validFrom: '2024-01-15T12:30:00Z',
+      validUntil: '2024-01-15T13:00:00Z',
+    },
   };
 
   beforeEach(() => {
@@ -86,19 +96,22 @@ describe('App Component', () => {
     });
   });
 
-  it('renders Today, WTD and MTD cost summary cards after data loads', async () => {
+  it('renders Today, WTD and MTD cost summary in table after data loads', async () => {
     // Mock successful API response
     mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Total Cost (Today)')).toBeInTheDocument();
-      expect(screen.getByText('Avg Cost per kWh (Today)')).toBeInTheDocument();
-      expect(screen.getByText('Total Cost (WTD)')).toBeInTheDocument();
-      expect(screen.getByText('Avg Cost per kWh (WTD)')).toBeInTheDocument();
-      expect(screen.getByText('Total Cost (MTD)')).toBeInTheDocument();
-      expect(screen.getByText('Avg Cost per kWh (MTD)')).toBeInTheDocument();
+      // Check for table headers (case-insensitive due to CSS text-transform)
+      expect(screen.getByText('Period')).toBeInTheDocument();
+      expect(screen.getByText('Total Cost')).toBeInTheDocument();
+      expect(screen.getByText('Avg Cost/kWh')).toBeInTheDocument();
+
+      // Check for period labels in table rows
+      expect(screen.getByText('Today')).toBeInTheDocument();
+      expect(screen.getByText('Week to Date')).toBeInTheDocument();
+      expect(screen.getByText('Month to Date')).toBeInTheDocument();
     });
   });
 
@@ -173,6 +186,53 @@ describe('App Component', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Total Consumption')).not.toBeInTheDocument();
+    });
+  });
+
+  it('displays current and next tariff cards', async () => {
+    // Mock successful API response
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
+
+    render(<App />);
+
+    await waitFor(() => {
+      // Text is transformed to uppercase via CSS, so check for the original case
+      expect(screen.getByText('Current')).toBeInTheDocument();
+      expect(screen.getByText('Next')).toBeInTheDocument();
+      expect(screen.getByText('18.50 p')).toBeInTheDocument();
+      expect(screen.getByText('24.50 p')).toBeInTheDocument();
+    });
+  });
+
+  it('displays tariff time information', async () => {
+    // Mock successful API response
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
+
+    render(<App />);
+
+    await waitFor(() => {
+      // Check for FROM and UNTIL labels
+      const fromLabels = screen.getAllByText('FROM');
+      const untilLabels = screen.getAllByText('UNTIL');
+      expect(fromLabels.length).toBeGreaterThan(0);
+      expect(untilLabels.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('does not display tariff section when no tariff data available', async () => {
+    // Mock with no tariff data
+    const mockDataNoTariffs = {
+      ...mockAllDashboardData,
+      currentTariff: null,
+      nextTariff: null,
+    };
+    mockedApiService.fetchAllDashboardData.mockResolvedValue(mockDataNoTariffs);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Current')).not.toBeInTheDocument();
+      expect(screen.queryByText('Next')).not.toBeInTheDocument();
     });
   });
 });

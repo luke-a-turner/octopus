@@ -151,6 +151,12 @@ function createChartData(tariffConsumptionData: TariffAndConsumptionData[]): Dat
   return [...tariffTraces, ...consumptionTraces];
 }
 
+export interface TariffInfo {
+  rate: number;
+  validFrom: string;
+  validUntil?: string;
+}
+
 export interface AllDashboardData {
   mtdData: TariffAndConsumptionData[];
   mtdCostSummary: CostSummary;
@@ -158,10 +164,61 @@ export interface AllDashboardData {
   todayCostSummary: CostSummary;
   chartData: Data[];
   chartCostSummary: CostSummary;
+  currentTariff: TariffInfo | null;
+  nextTariff: TariffInfo | null;
 }
 
 const formatDate = (datetime: Date) => {
   return datetime.toISOString().substring(0, 19)
+}
+
+// Helper function to find current and next tariff
+function findCurrentAndNextTariff(data: TariffAndConsumptionData[]): {
+  currentTariff: TariffInfo | null;
+  nextTariff: TariffInfo | null;
+} {
+  if (data.length === 0) {
+    return { currentTariff: null, nextTariff: null };
+  }
+
+  const now = new Date();
+
+  // Sort data by valid_from in ascending order
+  const sortedData = [...data].sort(
+    (a, b) => new Date(a.valid_from).getTime() - new Date(b.valid_from).getTime()
+  );
+
+  // Find current tariff (most recent tariff that has started)
+  let currentTariff: TariffInfo | null = null;
+  let currentIndex = -1;
+
+  for (let i = sortedData.length - 1; i >= 0; i--) {
+    const validFrom = new Date(sortedData[i].valid_from);
+    if (validFrom <= now) {
+      currentIndex = i;
+      const validUntil = i < sortedData.length - 1 ? sortedData[i + 1].valid_from : undefined;
+      currentTariff = {
+        rate: sortedData[i].value_inc_vat,
+        validFrom: sortedData[i].valid_from,
+        validUntil,
+      };
+      break;
+    }
+  }
+
+  // Find next tariff (first tariff after current one)
+  let nextTariff: TariffInfo | null = null;
+  if (currentIndex !== -1 && currentIndex < sortedData.length - 1) {
+    const nextIndex = currentIndex + 1;
+    const validUntil = nextIndex < sortedData.length - 1 ? sortedData[nextIndex + 1].valid_from : undefined;
+    nextTariff = {
+      rate: sortedData[nextIndex].value_inc_vat,
+      validFrom: sortedData[nextIndex].valid_from,
+      validUntil,
+    };
+  }
+
+  return { currentTariff, nextTariff };
 }
 
 // Fetch all dashboard data in a single request (MTD) and derive WTD and chart data
@@ -208,6 +265,9 @@ export async function fetchAllDashboardData(): Promise<AllDashboardData> {
   const chartData = createChartData(chartDataFiltered);
   const chartCostSummary = calculateCostSummary(chartDataFiltered);
 
+  // Find current and next tariff
+  const { currentTariff, nextTariff } = findCurrentAndNextTariff(chartDataFiltered);
+
   return {
     mtdData,
     mtdCostSummary,
@@ -215,5 +275,7 @@ export async function fetchAllDashboardData(): Promise<AllDashboardData> {
     todayCostSummary,
     chartData,
     chartCostSummary,
+    currentTariff,
+    nextTariff,
   };
 }

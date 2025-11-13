@@ -503,5 +503,107 @@ describe('API Service', () => {
 
       await expect(fetchAllDashboardData()).rejects.toThrow('Network error');
     });
+
+    it('extracts current tariff correctly', async () => {
+      const mockResponse = {
+        data: [
+          // Past tariff
+          {
+            valid_from: '2024-01-15T11:30:00Z',
+            value_inc_vat: 15.0,
+            consumption: 1.0,
+          },
+          // Current tariff (now is 12:00:00)
+          {
+            valid_from: '2024-01-15T12:00:00Z',
+            value_inc_vat: 18.5,
+            consumption: 2.0,
+          },
+          // Future tariff
+          {
+            valid_from: '2024-01-15T12:30:00Z',
+            value_inc_vat: 22.0,
+            consumption: 3.0,
+          },
+        ],
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await fetchAllDashboardData();
+
+      expect(result.currentTariff).toBeDefined();
+      expect(result.currentTariff?.rate).toBe(18.5);
+      expect(result.currentTariff?.validFrom).toBe('2024-01-15T12:00:00Z');
+      expect(result.currentTariff?.validUntil).toBe('2024-01-15T12:30:00Z');
+    });
+
+    it('extracts next tariff correctly', async () => {
+      const mockResponse = {
+        data: [
+          // Current tariff (now is 12:00:00)
+          {
+            valid_from: '2024-01-15T12:00:00Z',
+            value_inc_vat: 18.5,
+            consumption: 2.0,
+          },
+          // Next tariff
+          {
+            valid_from: '2024-01-15T12:30:00Z',
+            value_inc_vat: 22.0,
+            consumption: 3.0,
+          },
+          // Future tariff
+          {
+            valid_from: '2024-01-15T13:00:00Z',
+            value_inc_vat: 25.0,
+            consumption: 4.0,
+          },
+        ],
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await fetchAllDashboardData();
+
+      expect(result.nextTariff).toBeDefined();
+      expect(result.nextTariff?.rate).toBe(22.0);
+      expect(result.nextTariff?.validFrom).toBe('2024-01-15T12:30:00Z');
+      expect(result.nextTariff?.validUntil).toBe('2024-01-15T13:00:00Z');
+    });
+
+    it('returns null tariffs when no data available', async () => {
+      const mockResponse = {
+        data: [],
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await fetchAllDashboardData();
+
+      expect(result.currentTariff).toBeNull();
+      expect(result.nextTariff).toBeNull();
+    });
+
+    it('returns null next tariff when current is the last tariff', async () => {
+      const mockResponse = {
+        data: [
+          // Only one tariff (current)
+          {
+            valid_from: '2024-01-15T12:00:00Z',
+            value_inc_vat: 18.5,
+            consumption: 2.0,
+          },
+        ],
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await fetchAllDashboardData();
+
+      expect(result.currentTariff).toBeDefined();
+      expect(result.currentTariff?.rate).toBe(18.5);
+      expect(result.nextTariff).toBeNull();
+    });
   });
 });

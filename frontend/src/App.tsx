@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import Plot from 'react-plotly.js';
 import { Data } from 'plotly.js';
-import CostSummaryCard from './components/CostSummaryCard';
-import { fetchAllDashboardData, CostSummary } from './services/api';
+import TariffCard from './components/TariffCard';
+import { fetchAllDashboardData, CostSummary, TariffInfo } from './services/api';
 
 function App() {
   const [chartData, setChartData] = useState<Data[]>([]);
@@ -19,6 +19,8 @@ function App() {
     totalCost: 0,
     averageCostPerKwh: 0,
   });
+  const [currentTariff, setCurrentTariff] = useState<TariffInfo | null>(null);
+  const [nextTariff, setNextTariff] = useState<TariffInfo | null>(null);
 
   useEffect(() => {
     // Fetch all data in a single request
@@ -28,6 +30,8 @@ function App() {
         setWtdCostSummary(allData.wtdCostSummary);
         setMtdCostSummary(allData.mtdCostSummary);
         setTodayCostSummary(allData.todayCostSummary);
+        setCurrentTariff(allData.currentTariff);
+        setNextTariff(allData.nextTariff);
         setLoading(false);
       })
       .catch(error => {
@@ -66,105 +70,197 @@ function App() {
     >
       <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>Octopus Energy Dashboard</h1>
 
-      {/* Cost Summary Cards */}
+      {/* Current and Next Tariff */}
+      {(currentTariff || nextTariff) && (
+        <div
+          style={{
+            maxWidth: '1400px',
+            margin: '0 auto 30px auto',
+          }}
+        >
+          <h2 style={{
+            fontSize: '13px',
+            color: '#808080',
+            marginBottom: '10px',
+            fontWeight: '500',
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase'
+          }}>
+            Tariffs
+          </h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '12px',
+          }}>
+            {currentTariff && (
+              <TariffCard
+                title="Current"
+                rate={currentTariff.rate}
+                validFrom={currentTariff.validFrom}
+                validUntil={currentTariff.validUntil}
+                color="#FFD700"
+              />
+            )}
+            {nextTariff && (
+              <TariffCard
+                title="Next"
+                rate={nextTariff.rate}
+                validFrom={nextTariff.validFrom}
+                validUntil={nextTariff.validUntil}
+                color="#FFA500"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Cost Summary Table */}
       <div
         style={{
           maxWidth: '1400px',
           margin: '0 auto 30px auto',
         }}
       >
-        {/* Today Section */}
-        <div style={{ marginBottom: '20px' }}>
-          <h2 style={{
-            fontSize: '13px',
-            color: '#808080',
-            marginBottom: '10px',
-            fontWeight: '500',
-            letterSpacing: '0.5px',
-            textTransform: 'uppercase'
-          }}>
-            Today
-          </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '12px',
-          }}>
-            <CostSummaryCard
-              title="Total Cost"
-              value={`£${todayCostSummary.totalCost.toFixed(2)}`}
-              color="#4ECDC4"
-            />
-            <CostSummaryCard
-              title="Avg Cost/kWh"
-              value={todayCostSummary.averageCostPerKwh.toFixed(2)}
-              color="#4ECDC4"
-              unit=" p"
-            />
-          </div>
-        </div>
+        <table style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          backgroundColor: '#262626',
+          borderRadius: '6px',
+          overflow: 'hidden',
+        }}>
+          <thead>
+            <tr style={{ backgroundColor: '#1f1f1f' }}>
+              <th style={{
+                padding: '12px 16px',
+                textAlign: 'left',
+                fontSize: '11px',
+                color: '#909090',
+                fontWeight: '500',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                borderBottom: '1px solid #404040',
+              }}>
+                Period
+              </th>
+              <th style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '11px',
+                color: '#909090',
+                fontWeight: '500',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                borderBottom: '1px solid #404040',
+              }}>
+                Total Cost
+              </th>
+              <th style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '11px',
+                color: '#909090',
+                fontWeight: '500',
+                letterSpacing: '0.5px',
+                textTransform: 'uppercase',
+                borderBottom: '1px solid #404040',
+              }}>
+                Avg Cost/kWh
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Today Row */}
+            <tr style={{ borderBottom: '1px solid #333333' }}>
+              <td style={{
+                padding: '12px 16px',
+                fontSize: '14px',
+                color: '#e0e0e0',
+                fontWeight: '500',
+              }}>
+                Today
+              </td>
+              <td style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '16px',
+                color: '#4ECDC4',
+                fontWeight: '600',
+              }}>
+                £{todayCostSummary.totalCost.toFixed(2)}
+              </td>
+              <td style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '16px',
+                color: '#4ECDC4',
+                fontWeight: '600',
+              }}>
+                {todayCostSummary.averageCostPerKwh.toFixed(2)} p
+              </td>
+            </tr>
 
-        {/* Week to Date Section */}
-        <div style={{ marginBottom: '20px' }}>
-          <h2 style={{
-            fontSize: '13px',
-            color: '#808080',
-            marginBottom: '10px',
-            fontWeight: '500',
-            letterSpacing: '0.5px',
-            textTransform: 'uppercase'
-          }}>
-            Week to Date
-          </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '12px',
-          }}>
-            <CostSummaryCard
-              title="Total Cost"
-              value={`£${wtdCostSummary.totalCost.toFixed(2)}`}
-              color="#95E1D3"
-            />
-            <CostSummaryCard
-              title="Avg Cost/kWh"
-              value={wtdCostSummary.averageCostPerKwh.toFixed(2)}
-              color="#95E1D3"
-              unit=" p"
-            />
-          </div>
-        </div>
+            {/* Week to Date Row */}
+            <tr style={{ borderBottom: '1px solid #333333' }}>
+              <td style={{
+                padding: '12px 16px',
+                fontSize: '14px',
+                color: '#e0e0e0',
+                fontWeight: '500',
+              }}>
+                Week to Date
+              </td>
+              <td style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '16px',
+                color: '#95E1D3',
+                fontWeight: '600',
+              }}>
+                £{wtdCostSummary.totalCost.toFixed(2)}
+              </td>
+              <td style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '16px',
+                color: '#95E1D3',
+                fontWeight: '600',
+              }}>
+                {wtdCostSummary.averageCostPerKwh.toFixed(2)} p
+              </td>
+            </tr>
 
-        {/* Month to Date Section */}
-        <div style={{ marginBottom: '20px' }}>
-          <h2 style={{
-            fontSize: '13px',
-            color: '#808080',
-            marginBottom: '10px',
-            fontWeight: '500',
-            letterSpacing: '0.5px',
-            textTransform: 'uppercase'
-          }}>
-            Month to Date
-          </h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '12px',
-          }}>
-            <CostSummaryCard
-              title="Total Cost"
-              value={`£${mtdCostSummary.totalCost.toFixed(2)}`}
-              color="#F38181"
-            />
-            <CostSummaryCard
-              title="Avg Cost/kWh"
-              value={mtdCostSummary.averageCostPerKwh.toFixed(2)}
-              color="#F38181"
-              unit=" p"
-            />
-          </div>
-        </div>
+            {/* Month to Date Row */}
+            <tr>
+              <td style={{
+                padding: '12px 16px',
+                fontSize: '14px',
+                color: '#e0e0e0',
+                fontWeight: '500',
+              }}>
+                Month to Date
+              </td>
+              <td style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '16px',
+                color: '#F38181',
+                fontWeight: '600',
+              }}>
+                £{mtdCostSummary.totalCost.toFixed(2)}
+              </td>
+              <td style={{
+                padding: '12px 16px',
+                textAlign: 'right',
+                fontSize: '16px',
+                color: '#F38181',
+                fontWeight: '600',
+              }}>
+                {mtdCostSummary.averageCostPerKwh.toFixed(2)} p
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <Plot
