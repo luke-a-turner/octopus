@@ -105,7 +105,8 @@ describe('App Component', () => {
     await waitFor(() => {
       // Check for table headers (case-insensitive due to CSS text-transform)
       expect(screen.getByText('Period')).toBeInTheDocument();
-      expect(screen.getByText('Total Cost')).toBeInTheDocument();
+      const totalCostHeaders = screen.getAllByText('Total Cost');
+      expect(totalCostHeaders.length).toBeGreaterThan(0);
       expect(screen.getByText('Avg Cost/kWh')).toBeInTheDocument();
 
       // Check for period labels in table rows
@@ -178,14 +179,17 @@ describe('App Component', () => {
     });
   });
 
-  it('does not display Total Consumption card', async () => {
+  it('displays detail grid with summary statistics', async () => {
     // Mock successful API response
     mockedApiService.fetchAllDashboardData.mockResolvedValue(mockAllDashboardData);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.queryByText('Total Consumption')).not.toBeInTheDocument();
+      // DetailGrid should now be displayed with summary cards
+      expect(screen.getByText('Total Consumption')).toBeInTheDocument();
+      expect(screen.getByText('Weighted Avg Rate')).toBeInTheDocument();
+      expect(screen.getByText('Detail Data')).toBeInTheDocument();
     });
   });
 

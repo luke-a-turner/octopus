@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { Data } from 'plotly.js';
 import TariffCard from './components/TariffCard';
+import CostSummaryTable, { PeriodFilter } from './components/CostSummaryTable';
+import DetailGrid, { DetailGridRow } from './components/DetailGrid';
 import { fetchAllDashboardData, CostSummary, TariffInfo } from './services/api';
+
+interface TariffAndConsumptionData {
+  valid_from: string;
+  value_inc_vat: number;
+  interval_start: string;
+  consumption: number;
+}
 
 function App() {
   const [chartData, setChartData] = useState<Data[]>([]);
@@ -21,6 +30,8 @@ function App() {
   });
   const [currentTariff, setCurrentTariff] = useState<TariffInfo | null>(null);
   const [nextTariff, setNextTariff] = useState<TariffInfo | null>(null);
+  const [mtdData, setMtdData] = useState<TariffAndConsumptionData[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>(null);
 
   useEffect(() => {
     // Fetch all data in a single request
@@ -32,6 +43,7 @@ function App() {
         setTodayCostSummary(allData.todayCostSummary);
         setCurrentTariff(allData.currentTariff);
         setNextTariff(allData.nextTariff);
+        setMtdData(allData.mtdData);
         setLoading(false);
       })
       .catch(error => {
@@ -39,6 +51,57 @@ function App() {
         setLoading(false);
       });
   }, []);
+
+  // Helper function to get start of week (Monday)
+  const getWeekStart = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  // Transform and filter data for the detail grid
+  const detailGridData: DetailGridRow[] = useMemo(() => {
+    if (mtdData.length === 0) return [];
+
+    const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const weekStart = getWeekStart(now);
+
+    // Filter data based on selected period
+    let filteredData = mtdData;
+
+    if (selectedPeriod === 'today') {
+      filteredData = mtdData.filter(item => {
+        const itemDate = new Date(item.valid_from);
+        return itemDate >= todayStart;
+      });
+    } else if (selectedPeriod === 'wtd') {
+      filteredData = mtdData.filter(item => {
+        const itemDate = new Date(item.valid_from);
+        return itemDate >= weekStart;
+      });
+    }
+    // 'mtd' or null shows all mtdData
+
+    // Transform to DetailGridRow format
+    return filteredData.map(item => {
+      const dateTime = new Date(item.valid_from);
+      const cost = (item.consumption * item.value_inc_vat) / 100; // Convert pence to pounds
+
+      return {
+        date: dateTime.toLocaleDateString('en-GB'),
+        time: dateTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        rate: item.value_inc_vat,
+        consumption: item.consumption,
+        cost,
+        dateTime,
+      };
+    }).sort((a, b) => b.dateTime.getTime() - a.dateTime.getTime()); // Sort by most recent first
+  }, [mtdData, selectedPeriod]);
 
   if (loading) {
     return (
@@ -116,152 +179,18 @@ function App() {
       )}
 
       {/* Cost Summary Table */}
-      <div
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto 30px auto',
-        }}
-      >
-        <table style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          backgroundColor: '#262626',
-          borderRadius: '6px',
-          overflow: 'hidden',
-        }}>
-          <thead>
-            <tr style={{ backgroundColor: '#1f1f1f' }}>
-              <th style={{
-                padding: '12px 16px',
-                textAlign: 'left',
-                fontSize: '11px',
-                color: '#909090',
-                fontWeight: '500',
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                borderBottom: '1px solid #404040',
-              }}>
-                Period
-              </th>
-              <th style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '11px',
-                color: '#909090',
-                fontWeight: '500',
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                borderBottom: '1px solid #404040',
-              }}>
-                Total Cost
-              </th>
-              <th style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '11px',
-                color: '#909090',
-                fontWeight: '500',
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                borderBottom: '1px solid #404040',
-              }}>
-                Avg Cost/kWh
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Today Row */}
-            <tr style={{ borderBottom: '1px solid #333333' }}>
-              <td style={{
-                padding: '12px 16px',
-                fontSize: '14px',
-                color: '#e0e0e0',
-                fontWeight: '500',
-              }}>
-                Today
-              </td>
-              <td style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '16px',
-                color: '#4ECDC4',
-                fontWeight: '600',
-              }}>
-                £{todayCostSummary.totalCost.toFixed(2)}
-              </td>
-              <td style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '16px',
-                color: '#4ECDC4',
-                fontWeight: '600',
-              }}>
-                {todayCostSummary.averageCostPerKwh.toFixed(2)} p
-              </td>
-            </tr>
+      <CostSummaryTable
+        todayCostSummary={todayCostSummary}
+        wtdCostSummary={wtdCostSummary}
+        mtdCostSummary={mtdCostSummary}
+        selectedPeriod={selectedPeriod}
+        onPeriodClick={setSelectedPeriod}
+      />
 
-            {/* Week to Date Row */}
-            <tr style={{ borderBottom: '1px solid #333333' }}>
-              <td style={{
-                padding: '12px 16px',
-                fontSize: '14px',
-                color: '#e0e0e0',
-                fontWeight: '500',
-              }}>
-                Week to Date
-              </td>
-              <td style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '16px',
-                color: '#95E1D3',
-                fontWeight: '600',
-              }}>
-                £{wtdCostSummary.totalCost.toFixed(2)}
-              </td>
-              <td style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '16px',
-                color: '#95E1D3',
-                fontWeight: '600',
-              }}>
-                {wtdCostSummary.averageCostPerKwh.toFixed(2)} p
-              </td>
-            </tr>
-
-            {/* Month to Date Row */}
-            <tr>
-              <td style={{
-                padding: '12px 16px',
-                fontSize: '14px',
-                color: '#e0e0e0',
-                fontWeight: '500',
-              }}>
-                Month to Date
-              </td>
-              <td style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '16px',
-                color: '#F38181',
-                fontWeight: '600',
-              }}>
-                £{mtdCostSummary.totalCost.toFixed(2)}
-              </td>
-              <td style={{
-                padding: '12px 16px',
-                textAlign: 'right',
-                fontSize: '16px',
-                color: '#F38181',
-                fontWeight: '600',
-              }}>
-                {mtdCostSummary.averageCostPerKwh.toFixed(2)} p
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {/* Detail Grid */}
+      {detailGridData.length > 0 && (
+        <DetailGrid data={detailGridData} />
+      )}
 
       <Plot
         data={chartData}

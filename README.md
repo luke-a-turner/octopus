@@ -15,6 +15,9 @@ This project provides real-time visualization of electricity prices and smart me
 - ⚡ Smart meter consumption tracking
 - 🌙 Dark theme interface
 - 📈 Dual y-axis charts for price vs usage comparison
+- 📋 **Interactive data table** with AG Grid for detailed consumption analysis
+- 🔍 **Filterable views** - click on period summaries (Today, WTD, MTD) to filter detailed data
+- 📊 **Summary statistics** - automatic calculation of totals and weighted averages
 - 🔄 Async data fetching for optimal performance
 - 💾 PostgreSQL database caching for persistent data storage
 - 🗄️ Automatic database fallback - checks DB before making API calls
@@ -486,24 +489,55 @@ npm install package-name
 - React 18 with TypeScript
 - Vite for build tooling
 - Plotly.js for interactive charts
+- AG Grid for data tables with filtering, sorting, and pagination
 - Axios for HTTP requests
 
 ## Data Visualization
 
 The dashboard displays:
 
-### Bar Charts (Tariff Prices)
+### Summary Cards
+- **Current Tariff** - Current electricity rate with validity period
+- **Next Tariff** - Upcoming rate change (if available)
+- **Cost Summary Table** - Interactive table showing Today, Week to Date, and Month to Date totals
+  - Click any row to filter the detailed data grid
+  - Click again to clear the filter
+  - Selected rows are highlighted
+
+### Detailed Data Grid (AG Grid)
+- **Interactive Table** - Displays half-hourly consumption and tariff data
+  - Date and time of each reading
+  - Tariff rate (p/kWh)
+  - Consumption (kWh)
+  - Cost (£) calculated per interval
+- **Summary Statistics** - Automatically calculated:
+  - Total consumption for filtered period
+  - Weighted average rate (considers consumption volume)
+  - Total cost
+- **Filtering** - Click period rows in summary table to filter data:
+  - Today: Shows only today's data
+  - Week to Date: Shows data from Monday onwards
+  - Month to Date: Shows all data for current month
+- **Features:**
+  - Sortable columns - click headers to sort
+  - Filterable data - use column filters
+  - Pagination - 20 rows per page (configurable: 10, 20, 50, 100)
+  - Dark theme matches dashboard design
+
+### Charts (Plotly.js)
+
+#### Bar Charts (Tariff Prices)
 - Color-coded by date
 - Prices in pence per kWh (left y-axis)
 - Interactive hover for exact values
 - Custom colors: `#E3E342`, `#2A2299`, `#24941B`
 
-### Line Chart (Smart Meter Usage)
+#### Line Chart (Smart Meter Usage)
 - Continuous line with markers
 - Consumption in kWh (right y-axis)
 - Red color (`#FF6B6B`) for distinction
 
-### Chart Interactions
+#### Chart Interactions
 - **Zoom:** Click and drag
 - **Pan:** Hold Shift and drag
 - **Reset:** Double-click
@@ -600,6 +634,7 @@ npm run build
 - [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
 - [Vite](https://vitejs.dev/) - Fast build tool
 - [Plotly.js](https://plotly.com/javascript/) - Charting library
+- [AG Grid](https://www.ag-grid.com/) - Feature-rich data grid
 - [Axios](https://axios-http.com/) - HTTP client
 
 ## License
@@ -718,6 +753,10 @@ npm run coverage
 
 **Test files:**
 - `src/test/App.test.tsx` - App component tests
+- `src/test/CostSummaryTable.test.tsx` - Cost summary table tests with click interactions
+- `src/test/DetailGrid.test.tsx` - Detail grid component tests
+- `src/test/CostSummaryCard.test.tsx` - Cost summary card tests
+- `src/test/api.test.ts` - API service tests
 - `src/test/setup.ts` - Test configuration
 
 ## Contributing
@@ -753,10 +792,14 @@ For issues:
 - [x] Cache data for 1 hour (implemented with cachetools)
 - [x] Persistent cache (implemented with PostgreSQL)
 - [x] Automatic database fallback for API data
-- [ ] Add cost calculation features
-- [ ] Historical data comparison
-- [ ] Export data to CSV
+- [x] **Interactive data table** with AG Grid
+- [x] **Filterable period views** (Today, WTD, MTD)
+- [x] **Summary statistics** with weighted averages
+- [ ] Export data to CSV from grid
+- [ ] Historical data comparison charts
 - [ ] Database query optimizations and indexes
 - [ ] User preferences and settings
 - [ ] Integration with home automation systems
-- [ ] Additional charting options
+- [ ] Additional charting options (cost over time, usage patterns)
+- [ ] Custom date range filtering
+- [ ] Cost projections and forecasting
