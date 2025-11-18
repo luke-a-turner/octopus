@@ -69,7 +69,7 @@ class GraphqlRequest:
                 ) as response:
                     json = await response.json()
         except Exception as err:
-            print(f"Error: {err}")
+            logger.error(f"Error: {err}")
             json = {}
 
         return Token(
@@ -107,5 +107,5 @@ class GraphqlRequest:
                 ) as response:
                     return await response.json()
             except Exception as err:
-                print(f"Error: {err}")
+                logger.error(f"Error: {err}")
                 return {}
