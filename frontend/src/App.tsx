@@ -35,21 +35,32 @@ function App() {
 
   useEffect(() => {
     // Fetch all data in a single request
-    fetchAllDashboardData()
-      .then(allData => {
-        setChartData(allData.chartData);
-        setWtdCostSummary(allData.wtdCostSummary);
-        setMtdCostSummary(allData.mtdCostSummary);
-        setTodayCostSummary(allData.todayCostSummary);
-        setCurrentTariff(allData.currentTariff);
-        setNextTariff(allData.nextTariff);
-        setMtdData(allData.mtdData);
-        setLoading(false);
-      })
-      .catch(error => {
-        console.error('Error fetching data:', error);
-        setLoading(false);
-      });
+    const fetchData = () => {
+      fetchAllDashboardData()
+        .then(allData => {
+          setChartData(allData.chartData);
+          setWtdCostSummary(allData.wtdCostSummary);
+          setMtdCostSummary(allData.mtdCostSummary);
+          setTodayCostSummary(allData.todayCostSummary);
+          setCurrentTariff(allData.currentTariff);
+          setNextTariff(allData.nextTariff);
+          setMtdData(allData.mtdData);
+          setLoading(false);
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+          setLoading(false);
+        });
+    };
+
+    // Initial fetch
+    fetchData();
+
+    // Set up interval to refresh every 30 minutes (30 * 60 * 1000 milliseconds)
+    const intervalId = setInterval(fetchData, 30 * 60 * 1000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   // Helper function to get start of week (Monday)
