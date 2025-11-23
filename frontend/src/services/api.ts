@@ -4,7 +4,6 @@ import { Data } from 'plotly.js';
 interface TariffAndConsumptionData {
   valid_from: string;
   value_inc_vat: number;
-  interval_start: string;
   consumption: number;
 }
 

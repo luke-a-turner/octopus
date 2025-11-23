@@ -12,13 +12,6 @@ function TariffCard({ title, rate, validFrom, validUntil, color }: TariffCardPro
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-    return `${time}, ${dateStr}`;
-  };
-
   return (
     <div style={{
       backgroundColor: '#262626',

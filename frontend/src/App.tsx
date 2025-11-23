@@ -3,13 +3,13 @@ import Plot from 'react-plotly.js';
 import { Data } from 'plotly.js';
 import TariffCard from './components/TariffCard';
 import CostSummaryTable, { PeriodFilter } from './components/CostSummaryTable';
-import DetailGrid, { DetailGridRow } from './components/DetailGrid';
+import DetailGrid from './components/DetailGrid';
 import { fetchAllDashboardData, CostSummary, TariffInfo } from './services/api';
+import { transformToDetailGridData } from './utils/detailGridUtils';
 
 interface TariffAndConsumptionData {
   valid_from: string;
   value_inc_vat: number;
-  interval_start: string;
   consumption: number;
 }
 
@@ -32,6 +32,13 @@ function App() {
   const [nextTariff, setNextTariff] = useState<TariffInfo | null>(null);
   const [mtdData, setMtdData] = useState<TariffAndConsumptionData[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>(null);
+
+  // Toggle handler for period selection
+  const handlePeriodClick = (period: PeriodFilter) => {
+    // If clicking the same period, toggle it off (set to null)
+    // Otherwise, set to the new period
+    setSelectedPeriod(selectedPeriod === period ? null : period);
+  };
 
   useEffect(() => {
     // Fetch all data in a single request
@@ -63,56 +70,11 @@ function App() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Helper function to get start of week (Monday)
-  const getWeekStart = (date: Date): Date => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-
   // Transform and filter data for the detail grid
-  const detailGridData: DetailGridRow[] = useMemo(() => {
-    if (mtdData.length === 0) return [];
-
-    const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const weekStart = getWeekStart(now);
-
-    // Filter data based on selected period
-    let filteredData = mtdData;
-
-    if (selectedPeriod === 'today') {
-      filteredData = mtdData.filter(item => {
-        const itemDate = new Date(item.valid_from);
-        return itemDate >= todayStart;
-      });
-    } else if (selectedPeriod === 'wtd') {
-      filteredData = mtdData.filter(item => {
-        const itemDate = new Date(item.valid_from);
-        return itemDate >= weekStart;
-      });
-    }
-    // 'mtd' or null shows all mtdData
-
-    // Transform to DetailGridRow format
-    return filteredData.map(item => {
-      const dateTime = new Date(item.valid_from);
-      const cost = (item.consumption * item.value_inc_vat) / 100; // Convert pence to pounds
-
-      return {
-        date: dateTime.toLocaleDateString('en-GB'),
-        time: dateTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        rate: item.value_inc_vat,
-        consumption: item.consumption,
-        cost,
-        dateTime,
-      };
-    }).sort((a, b) => b.dateTime.getTime() - a.dateTime.getTime()); // Sort by most recent first
-  }, [mtdData, selectedPeriod]);
+  const detailGridData = useMemo(
+    () => transformToDetailGridData(mtdData, selectedPeriod),
+    [mtdData, selectedPeriod]
+  );
 
   if (loading) {
     return (
@@ -195,11 +157,11 @@ function App() {
         wtdCostSummary={wtdCostSummary}
         mtdCostSummary={mtdCostSummary}
         selectedPeriod={selectedPeriod}
-        onPeriodClick={setSelectedPeriod}
+        onPeriodClick={handlePeriodClick}
       />
 
       {/* Detail Grid */}
-      {detailGridData.length > 0 && (
+      {selectedPeriod !== null && detailGridData.length > 0 && (
         <DetailGrid data={detailGridData} />
       )}
 

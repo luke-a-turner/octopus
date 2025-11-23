@@ -74,7 +74,7 @@ function CostSummaryTable({
         <tbody>
           {/* Today Row */}
           <tr
-            onClick={() => onPeriodClick(selectedPeriod === 'today' ? null : 'today')}
+            onClick={() => onPeriodClick('today')}
             style={{
               borderBottom: '1px solid #333333',
               cursor: 'pointer',
@@ -122,7 +122,7 @@ function CostSummaryTable({
 
           {/* Week to Date Row */}
           <tr
-            onClick={() => onPeriodClick(selectedPeriod === 'wtd' ? null : 'wtd')}
+            onClick={() => onPeriodClick('wtd')}
             style={{
               borderBottom: '1px solid #333333',
               cursor: 'pointer',
@@ -170,7 +170,7 @@ function CostSummaryTable({
 
           {/* Month to Date Row */}
           <tr
-            onClick={() => onPeriodClick(selectedPeriod === 'mtd' ? null : 'mtd')}
+            onClick={() => onPeriodClick('mtd')}
             style={{
               cursor: 'pointer',
               backgroundColor: selectedPeriod === 'mtd' ? '#333333' : 'transparent',

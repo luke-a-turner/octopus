@@ -1,16 +1,21 @@
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef } from 'ag-grid-community';
+import { ColDef, ModuleRegistry } from 'ag-grid-community';
+import { AllCommunityModule } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import '../ag-grid-theme.css';
 import { useMemo } from 'react';
 
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
+
 export interface DetailGridRow {
   date: string;
-  time: string;
-  rate: number;
   consumption: number;
   cost: number;
+  averageRate: number;
+  averageCostPerKwh: number;
+  delta: number;
   dateTime: Date;
 }
 
@@ -26,22 +31,7 @@ function DetailGrid({ data }: DetailGridProps) {
         headerName: 'Date',
         sortable: true,
         filter: true,
-        width: 120,
-      },
-      {
-        field: 'time',
-        headerName: 'Time',
-        sortable: true,
-        filter: true,
-        width: 100,
-      },
-      {
-        field: 'rate',
-        headerName: 'Rate (p/kWh)',
-        sortable: true,
-        filter: 'agNumberColumnFilter',
-        valueFormatter: params => params.value?.toFixed(2),
-        width: 130,
+        width: 150,
       },
       {
         field: 'consumption',
@@ -49,7 +39,7 @@ function DetailGrid({ data }: DetailGridProps) {
         sortable: true,
         filter: 'agNumberColumnFilter',
         valueFormatter: params => params.value?.toFixed(3),
-        width: 170,
+        width: 180,
       },
       {
         field: 'cost',
@@ -57,6 +47,30 @@ function DetailGrid({ data }: DetailGridProps) {
         sortable: true,
         filter: 'agNumberColumnFilter',
         valueFormatter: params => `£${params.value?.toFixed(2)}`,
+        width: 130,
+      },
+      {
+        field: 'averageRate',
+        headerName: 'Avg Rate (p/kWh)',
+        sortable: true,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: params => params.value?.toFixed(2),
+        width: 160,
+      },
+      {
+        field: 'averageCostPerKwh',
+        headerName: 'Avg Cost/kWh (p)',
+        sortable: true,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: params => params.value?.toFixed(2),
+        width: 160,
+      },
+      {
+        field: 'delta',
+        headerName: 'Delta (p)',
+        sortable: true,
+        filter: 'agNumberColumnFilter',
+        valueFormatter: params => params.value?.toFixed(2),
         width: 120,
       },
     ],
@@ -64,22 +78,29 @@ function DetailGrid({ data }: DetailGridProps) {
   );
 
   // Calculate totals and averages
-  const { totalConsumption, weightedAverageRate, totalCost } = useMemo(() => {
+  const { totalConsumption, averageRate, averageCostPerKwh, delta, totalCost } = useMemo(() => {
     let totalConsumption = 0;
     let totalCost = 0;
-    let weightedRateSum = 0;
+    let rateSum = 0;
 
     data.forEach(row => {
       totalConsumption += row.consumption;
       totalCost += row.cost;
-      weightedRateSum += row.rate * row.consumption;
+      rateSum += row.averageRate;
     });
 
-    const weightedAverageRate = totalConsumption > 0 ? weightedRateSum / totalConsumption : 0;
+    // Average rate in pence: simple average across all days
+    const averageRate = data.length > 0 ? rateSum / data.length : 0;
+    // Average cost per kWh in pence
+    const averageCostPerKwh = totalConsumption > 0 ? (totalCost * 100) / totalConsumption : 0;
+    // Delta between cost and rate
+    const delta = averageCostPerKwh - averageRate;
 
     return {
       totalConsumption,
-      weightedAverageRate,
+      averageRate,
+      averageCostPerKwh,
+      delta,
       totalCost,
     };
   }, [data]);
@@ -167,7 +188,36 @@ function DetailGrid({ data }: DetailGridProps) {
               letterSpacing: '0.5px',
             }}
           >
-            Weighted Avg Rate
+            Avg Rate
+          </div>
+          <div
+            style={{
+              fontSize: '20px',
+              color: '#FFD700',
+              fontWeight: '600',
+            }}
+          >
+            {averageRate.toFixed(2)} p/kWh
+          </div>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: '#262626',
+            padding: '12px 16px',
+            borderRadius: '6px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '11px',
+              color: '#909090',
+              marginBottom: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Avg Cost/kWh
           </div>
           <div
             style={{
@@ -176,7 +226,36 @@ function DetailGrid({ data }: DetailGridProps) {
               fontWeight: '600',
             }}
           >
-            {weightedAverageRate.toFixed(2)} p/kWh
+            {averageCostPerKwh.toFixed(2)} p/kWh
+          </div>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: '#262626',
+            padding: '12px 16px',
+            borderRadius: '6px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '11px',
+              color: '#909090',
+              marginBottom: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Delta
+          </div>
+          <div
+            style={{
+              fontSize: '20px',
+              color: delta >= 0 ? '#FFA500' : '#4ECDC4',
+              fontWeight: '600',
+            }}
+          >
+            {delta >= 0 ? '+' : ''}{delta.toFixed(2)} p
           </div>
         </div>
 
@@ -223,7 +302,7 @@ function DetailGrid({ data }: DetailGridProps) {
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           pagination={true}
-          paginationPageSize={20}
+          paginationPageSize={50}
           paginationPageSizeSelector={[10, 20, 50, 100]}
           domLayout="normal"
         />
